@@ -27,18 +27,40 @@ func main() {
 	}
 	defer db.Close()
 
+	// Handle migrate subcommands and exit without starting the server
+	if len(os.Args) >= 2 && os.Args[1] == "migrate" {
+		direction := "up"
+		if len(os.Args) >= 3 {
+			direction = os.Args[2]
+		}
+		switch direction {
+		case "up":
+			if err := database.RunMigrations(db); err != nil {
+				log.Fatalf("Migration failed: %v", err)
+			}
+		case "down":
+			if err := database.RollbackLastMigration(db); err != nil {
+				log.Fatalf("Rollback failed: %v", err)
+			}
+		default:
+			log.Fatalf("Unknown migrate direction %q — use up or down", direction)
+		}
+		return
+	}
+
+	// Normal startup: run pending migrations then serve
 	if err := database.RunMigrations(db); err != nil {
 		log.Fatalf("Migrations failed: %v", err)
 	}
-
-	r := gin.Default()
-	r.SetHTMLTemplate(loadTemplates("templates"))
-	r.Static("/static", "./static")
 
 	secret := os.Getenv("SESSION_SECRET")
 	if secret == "" {
 		log.Fatal("SESSION_SECRET is required")
 	}
+
+	r := gin.Default()
+	r.SetHTMLTemplate(loadTemplates("templates"))
+	r.Static("/static", "./static")
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
 
 	auth := handlers.NewAuthHandler(db)

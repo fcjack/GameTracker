@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -40,9 +41,17 @@ func RunMigrations(db *pgxpool.Pool) error {
 	if err != nil {
 		return fmt.Errorf("read migrations directory: %w", err)
 	}
-	sort.Strings(files)
 
-	for _, file := range files {
+	// Only include up migrations (exclude *.down.sql)
+	var upFiles []string
+	for _, f := range files {
+		if !strings.HasSuffix(f, ".down.sql") {
+			upFiles = append(upFiles, f)
+		}
+	}
+	sort.Strings(upFiles)
+
+	for _, file := range upFiles {
 		name := filepath.Base(file)
 		if applied[name] {
 			log.Printf("migration: skip  %s", name)
@@ -77,5 +86,48 @@ func RunMigrations(db *pgxpool.Pool) error {
 		log.Printf("migration: apply %s", name)
 	}
 
+	return nil
+}
+
+func RollbackLastMigration(db *pgxpool.Pool) error {
+	ctx := context.Background()
+
+	var filename string
+	err := db.QueryRow(ctx,
+		"SELECT filename FROM schema_migrations ORDER BY applied_at DESC, filename DESC LIMIT 1",
+	).Scan(&filename)
+	if err != nil {
+		return fmt.Errorf("no migrations to roll back")
+	}
+
+	base := strings.TrimSuffix(filename, ".sql")
+	downFile := filepath.Join("migrations", base+".down.sql")
+
+	content, err := os.ReadFile(downFile)
+	if err != nil {
+		return fmt.Errorf("down migration not found for %s: %w", filename, err)
+	}
+
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin transaction: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, string(content)); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("execute down migration %s: %w", filename, err)
+	}
+
+	if _, err := tx.Exec(ctx,
+		"DELETE FROM schema_migrations WHERE filename = $1", filename); err != nil {
+		tx.Rollback(ctx)
+		return fmt.Errorf("remove migration record for %s: %w", filename, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit rollback: %w", err)
+	}
+
+	log.Printf("migration: rolled back %s", filename)
 	return nil
 }
