@@ -1,0 +1,69 @@
+{{define "home"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="h-full bg-gray-950 text-white">
+    <nav class="border-b border-gray-800 bg-gray-900">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 font-bold text-white">
+                <span class="text-xl">🎮</span>
+                Game Tracker
+            </a>
+            <div class="flex items-center gap-3">
+                <a href="/login" class="text-sm text-gray-400 hover:text-white transition-colors">
+                    Sign in
+                </a>
+                <a href="/register" class="text-sm px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg transition-colors">
+                    Create account
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <main class="h-full flex flex-col items-center justify-center px-4">
+        <div class="text-center max-w-2xl">
+            <div class="mb-6">
+                <span class="text-7xl inline-block">🎮</span>
+            </div>
+
+            <h1 class="text-5xl md:text-6xl font-bold mb-4">Game Tracker</h1>
+            <p class="text-xl text-gray-400 mb-8">
+                Track your gaming progress across Steam and Xbox. Organize your backlog, log playtime, and never lose track of the games you love.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+                <a href="/register" class="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-lg transition-colors">
+                    Get Started
+                </a>
+                <a href="/login" class="px-6 py-3 border border-gray-700 hover:border-gray-600 text-white font-semibold rounded-lg transition-colors">
+                    Sign In
+                </a>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 text-left">
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                    <div class="text-2xl mb-2">📚</div>
+                    <h3 class="font-semibold mb-2">Track Progress</h3>
+                    <p class="text-sm text-gray-400">Monitor your completion status across all your games</p>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                    <div class="text-2xl mb-2">🔗</div>
+                    <h3 class="font-semibold mb-2">Import Libraries</h3>
+                    <p class="text-sm text-gray-400">Sync games from Steam, Xbox, and more</p>
+                </div>
+                <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                    <div class="text-2xl mb-2">⏱️</div>
+                    <h3 class="font-semibold mb-2">Log Sessions</h3>
+                    <p class="text-sm text-gray-400">Keep track of your playtime and gaming sessions</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</body>
+</html>
+{{end}}

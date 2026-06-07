@@ -65,6 +65,7 @@ func main() {
 
 	auth := handlers.NewAuthHandler(db)
 
+	r.GET("/", auth.HomePage)
 	r.GET("/login", auth.LoginPage)
 	r.POST("/login", auth.Login)
 	r.GET("/register", auth.RegisterPage)
@@ -74,7 +75,7 @@ func main() {
 	protected := r.Group("/")
 	protected.Use(handlers.AuthRequired())
 	{
-		protected.GET("/", auth.Dashboard)
+		protected.GET("/dashboard", auth.Dashboard)
 	}
 
 	port := os.Getenv("APP_PORT")

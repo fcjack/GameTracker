@@ -17,9 +17,18 @@ func NewAuthHandler(db *pgxpool.Pool) *AuthHandler {
 	return &AuthHandler{db: db}
 }
 
+func (h *AuthHandler) HomePage(c *gin.Context) {
+	session := sessions.Default(c)
+	if session.Get("user_id") != nil {
+		c.Redirect(http.StatusFound, "/dashboard")
+		return
+	}
+	c.HTML(http.StatusOK, "home", gin.H{})
+}
+
 func (h *AuthHandler) LoginPage(c *gin.Context) {
 	if sessions.Default(c).Get("user_id") != nil {
-		c.Redirect(http.StatusFound, "/")
+		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
 	c.HTML(http.StatusOK, "auth/login", gin.H{})
@@ -42,12 +51,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	session.Set("username", user.Username)
 	session.Save()
 
-	c.Redirect(http.StatusFound, "/")
+	c.Redirect(http.StatusFound, "/dashboard")
 }
 
 func (h *AuthHandler) RegisterPage(c *gin.Context) {
 	if sessions.Default(c).Get("user_id") != nil {
-		c.Redirect(http.StatusFound, "/")
+		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
 	c.HTML(http.StatusOK, "auth/register", gin.H{})
@@ -92,7 +101,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	session.Set("username", user.Username)
 	session.Save()
 
-	c.Redirect(http.StatusFound, "/")
+	c.Redirect(http.StatusFound, "/dashboard")
 }
 
 func (h *AuthHandler) Logout(c *gin.Context) {
