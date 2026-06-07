@@ -20,6 +20,8 @@ services:
       - POSTGRES_USER=gametracker
       - POSTGRES_PASSWORD=gametracker
       - POSTGRES_DB=gametracker
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
