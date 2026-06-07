@@ -1,0 +1,73 @@
+{{define "dashboard/index"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard — Game Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <link rel="manifest" href="/static/manifest.json">
+</head>
+<body class="h-full bg-gray-950 text-white">
+    <nav class="border-b border-gray-800 bg-gray-900">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 font-bold text-white">
+                <span class="text-xl">🎮</span>
+                Game Tracker
+            </a>
+            <div class="flex items-center gap-4">
+                <span class="text-sm text-gray-400">{{.username}}</span>
+                <form method="POST" action="/logout">
+                    <button
+                        type="submit"
+                        class="text-sm text-gray-400 hover:text-white transition-colors"
+                    >
+                        Sign out
+                    </button>
+                </form>
+            </div>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 py-10">
+        <div class="mb-8">
+            <h2 class="text-2xl font-bold">Welcome back, {{.username}}</h2>
+            <p class="mt-1 text-gray-400 text-sm">Your game library is empty. Start by importing your Steam or Xbox library.</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-10">
+            {{range $label, $count := .stats}}
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">{{$count}}</p>
+                <p class="mt-1 text-sm text-gray-400">{{$label}}</p>
+            </div>
+            {{else}}
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">0</p>
+                <p class="mt-1 text-sm text-gray-400">Playing</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">0</p>
+                <p class="mt-1 text-sm text-gray-400">Finished</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">0</p>
+                <p class="mt-1 text-sm text-gray-400">Backlog</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">0</p>
+                <p class="mt-1 text-sm text-gray-400">Dropped</p>
+            </div>
+            {{end}}
+        </div>
+
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
+            <p class="text-4xl mb-3">📭</p>
+            <p class="font-semibold text-gray-200">No games yet</p>
+            <p class="mt-1 text-sm text-gray-500">Import your library from Steam or Xbox to get started.</p>
+        </div>
+    </main>
+</body>
+</html>
+{{end}}

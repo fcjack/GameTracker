@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-8080}:8080"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - STEAM_API_KEY=${STEAM_API_KEY}
+      - XBOX_CLIENT_ID=${XBOX_CLIENT_ID}
+      - XBOX_CLIENT_SECRET=${XBOX_CLIENT_SECRET}
+      - SESSION_SECRET=${SESSION_SECRET}
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=gametracker
+      - POSTGRES_PASSWORD=gametracker
+      - POSTGRES_DB=gametracker
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gametracker"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
