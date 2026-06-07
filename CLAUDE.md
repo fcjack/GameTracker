@@ -9,20 +9,14 @@ Self-hosted personal game tracker. Import libraries from Steam and Xbox, track s
 ## Commands
 
 ```bash
-# Run (without Docker)
+# Run the app (migrations run automatically on startup)
 go run cmd/main.go
-
-# Run migrations
-go run cmd/migrate/main.go
-
-# Build
-go build -o game-tracker cmd/main.go
 
 # Run with Docker (recommended)
 docker compose up -d
 
-# Download dependencies
-go mod download
+# Tidy dependencies
+make tidy
 
 # Run tests
 go test ./...
@@ -42,32 +36,39 @@ Copy `.env.example` to `.env`. Required variables:
 
 ## Architecture
 
-**Entry points:**
-- `cmd/main.go` — starts the Gin server, loads `.env`, registers routes
-- `cmd/migrate/main.go` — runs SQL migrations from `migrations/` against the database
+**Entry point** — `cmd/main.go`:
+- Loads `.env`, connects to DB via `database.Connect()`, runs migrations via `database.RunMigrations()` (migrations are automatic on every startup, no separate command)
+- Loads all `*.html` files recursively from `templates/` into a single `*template.Template`
+- Sets up cookie-based sessions (`gin-contrib/sessions`), then registers routes
 
-**Internal packages** (`internal/`):
-- `handlers/` — Gin route handlers; one file per feature area (auth, dashboard, games, sessions, imports)
-- `models/` — domain structs and business logic; no DB access
-- `database/` — pgx/v5 connection pool and query functions; called only from handlers
+**Routes:**
+- Public: `GET/POST /login`, `GET/POST /register`, `POST /logout`
+- Protected by `handlers.AuthRequired()`: `GET /` (dashboard)
 
-**Templates** (`templates/`): Go HTML templates, organized by feature (`auth/`, `dashboard/`). Rendered server-side by handlers. HTMX swaps are partial templates returned from the same handler routes.
+**Internal packages:**
 
-**Static** (`static/`): `manifest.json` and `service-worker.js` for PWA support.
+- `internal/database/db.go` — `Connect()` returns a `*pgxpool.Pool`
+- `internal/database/migrate.go` — `RunMigrations()` applies pending `migrations/*.sql` files in sorted order, each in a transaction; tracks applied files in the `schema_migrations` table
+- `internal/models/` — domain structs and DB query functions together (no separate repository layer); handlers pass `db *pgxpool.Pool` into model functions directly
+- `internal/handlers/` — Gin handlers; `AuthHandler` holds `db`; `middleware.go` contains `AuthRequired()`
 
-**Migrations** (`migrations/`): Plain SQL files run in order by `cmd/migrate/main.go`.
+**Templates** (`templates/`):
+- Each `.html` file wraps its content in `{{define "folder/filename"}}...{{end}}` (e.g. `templates/auth/login.html` → `{{define "auth/login"}}`)
+- Handlers render by that defined name: `c.HTML(200, "auth/login", gin.H{...})`
+- Session data (`user_id`, `username`) is read from the Gin session and passed to templates via `gin.H`
 
-**Key dependencies:**
-- `gin-gonic/gin` — HTTP router and middleware
-- `gin-contrib/sessions` — cookie-based session store
-- `jackc/pgx/v5` — PostgreSQL driver (no ORM)
-- `joho/godotenv` — loads `.env` at startup
-- `golang.org/x/crypto` — password hashing
+**Migrations** (`migrations/`):
+- Plain SQL files named `NNN_description.sql` (e.g. `001_create_users.sql`)
+- Applied in alphabetical order; never re-applied once recorded in `schema_migrations`
 
-## External APIs
+**Auth:**
+- Passwords hashed with bcrypt (`golang.org/x/crypto`)
+- Session stores `user_id` (int64) and `username` (string); `AuthRequired()` checks for a non-nil `user_id`
 
-| API | Use |
-|-----|-----|
-| Steam Web API | Import game library via `steamid` |
-| Xbox Live API (OAuth2) | Import game library; requires OAuth flow |
-| IGDB API | Fetch game metadata (cover art, genres, etc.) |
+## External APIs (not yet implemented)
+
+| API | Purpose |
+|-----|---------|
+| Steam Web API | Import game library |
+| Xbox Live API (OAuth2) | Import game library |
+| IGDB API | Game metadata (cover art, genres) |
