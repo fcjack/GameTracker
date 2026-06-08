@@ -40,6 +40,30 @@ func GetUserByUsername(ctx context.Context, db *pgxpool.Pool, username string) (
 	return &user, nil
 }
 
+func GetUserByID(ctx context.Context, db *pgxpool.Pool, userID int64) (*User, error) {
+	var user User
+	err := db.QueryRow(ctx,
+		`SELECT id, username, password_hash FROM users WHERE id = $1`,
+		userID,
+	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+func UpdatePassword(ctx context.Context, db *pgxpool.Pool, userID int64, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return err
+	}
+	_, err = db.Exec(ctx,
+		`UPDATE users SET password_hash = $2 WHERE id = $1`,
+		userID, string(hash),
+	)
+	return err
+}
+
 func (u *User) CheckPassword(password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) == nil
 }

@@ -104,6 +104,7 @@ func main() {
 		protected.GET("/dashboard/stats", auth.DashboardStats)
 		protected.GET("/profile", profile.ProfilePage)
 		protected.POST("/profile/avatar", profile.UploadAvatar)
+		protected.POST("/profile/password", profile.ChangePassword)
 		protected.GET("/profile/avatar", profile.ServeAvatar)
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)

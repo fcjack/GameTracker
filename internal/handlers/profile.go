@@ -52,13 +52,51 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "profile/index", gin.H{
-		"username":     username,
-		"activeNav":    "profile",
-		"hasAvatar":    hasAvatar,
-		"gravatarURL":  gravatarURL,
-		"steamAccount": steamAccount,
-		"error":        c.Query("error"),
+		"username":        username,
+		"activeNav":       "profile",
+		"hasAvatar":       hasAvatar,
+		"gravatarURL":     gravatarURL,
+		"steamAccount":    steamAccount,
+		"error":           c.Query("error"),
+		"passwordError":   c.Query("password_error"),
+		"passwordSuccess": c.Query("password_success") == "1",
 	})
+}
+
+func (h *ProfileHandler) ChangePassword(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	currentPassword := c.PostForm("current_password")
+	newPassword := c.PostForm("new_password")
+	confirmPassword := c.PostForm("confirm_password")
+
+	redirectWithError := func(message string) {
+		c.Redirect(http.StatusSeeOther, "/profile?password_error="+message+"#password")
+	}
+
+	if len(newPassword) < 5 {
+		redirectWithError("Password+must+be+at+least+5+characters")
+		return
+	}
+
+	if newPassword != confirmPassword {
+		redirectWithError("Passwords+do+not+match")
+		return
+	}
+
+	user, err := models.GetUserByID(c.Request.Context(), h.db, userID)
+	if err != nil || !user.CheckPassword(currentPassword) {
+		redirectWithError("Current+password+is+incorrect")
+		return
+	}
+
+	if err := models.UpdatePassword(c.Request.Context(), h.db, userID, newPassword); err != nil {
+		redirectWithError("Failed+to+update+password")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/profile?password_success=1#password")
 }
 
 func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
