@@ -1,0 +1,132 @@
+{{define "library/index"}}
+<!DOCTYPE html>
+<html lang="en" class="h-full bg-gray-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Library — Game Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
+    <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+</head>
+<body class="h-full bg-gray-950 text-white">
+
+    <nav class="border-b border-gray-800 bg-gray-900">
+        <div class="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
+            <a href="/" class="flex items-center gap-2 font-bold text-white">
+                <span class="text-xl">🎮</span>
+                Game Tracker
+            </a>
+            <div class="relative">
+                <button onclick="toggleUserMenu()"
+                        class="text-gray-400 hover:text-white transition-colors p-2">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div id="userMenu"
+                     class="hidden absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg
+                            border border-gray-700 shadow-lg z-50">
+                    <div class="px-4 py-3 border-b border-gray-700">
+                        <p class="text-sm text-gray-300">{{.username}}</p>
+                    </div>
+                    <a href="/dashboard"
+                       class="block px-4 py-2 text-sm text-gray-300 hover:text-white
+                              hover:bg-gray-700 transition-colors">
+                        Dashboard
+                    </a>
+                    <a href="/profile"
+                       class="block px-4 py-2 text-sm text-gray-300 hover:text-white
+                              hover:bg-gray-700 transition-colors">
+                        Profile
+                    </a>
+                    <form method="POST" action="/logout" class="block">
+                        <button type="submit"
+                                class="w-full text-left px-4 py-2 text-sm text-gray-300
+                                       hover:text-white hover:bg-gray-700 transition-colors
+                                       rounded-b-lg">
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            </div>
+            <script>
+                function toggleUserMenu() {
+                    document.getElementById('userMenu').classList.toggle('hidden');
+                }
+                document.addEventListener('click', function(event) {
+                    const menu = document.getElementById('userMenu');
+                    const button = event.target.closest('button');
+                    if (!button || !button.onclick) {
+                        menu.classList.add('hidden');
+                    }
+                });
+            </script>
+        </div>
+    </nav>
+
+    <main class="max-w-5xl mx-auto px-4 py-10">
+        <div class="mb-8 flex items-center justify-between">
+            <h1 class="text-3xl font-bold">Game Library</h1>
+        </div>
+
+        {{if .error}}
+        <div class="mb-6 px-4 py-3 bg-red-950 border border-red-800
+                    rounded-lg text-red-300 text-sm">
+            {{.error}}
+        </div>
+        {{end}}
+
+        <div class="mb-10">
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+                <h2 class="text-lg font-semibold mb-4">Search IGDB</h2>
+                <div class="relative">
+                    <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2
+                               text-gray-500 pointer-events-none"></i>
+                    <input
+                        type="text"
+                        name="q"
+                        placeholder="Search for a game..."
+                        class="w-full bg-gray-800 border border-gray-700 rounded-lg
+                               pl-10 pr-4 py-2.5 text-white placeholder-gray-500
+                               focus:outline-none focus:border-indigo-500 transition-colors"
+                        hx-get="/library/search"
+                        hx-target="#search-results"
+                        hx-trigger="input changed delay:500ms"
+                        hx-include="[name='q']"
+                    >
+                </div>
+                <div id="search-results" class="mt-4"></div>
+            </div>
+        </div>
+
+        <div>
+            <h2 class="text-xl font-bold mb-4">My Library</h2>
+            <div id="library-section"
+                 hx-get="/library/games"
+                 hx-trigger="load, libraryUpdated from:body"
+                 hx-swap="innerHTML"
+                 class="min-h-[200px]">
+                Loading library...
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function clearSearch() {
+            const searchInput = document.querySelector('input[name="q"]');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            const searchResults = document.getElementById('search-results');
+            if (searchResults) {
+                searchResults.innerHTML = '';
+            }
+        }
+
+        function refreshLibrary() {
+            htmx.trigger(document.body, 'libraryUpdated');
+        }
+    </script>
+</body>
+</html>
+{{end}}

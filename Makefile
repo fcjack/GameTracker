@@ -1,4 +1,4 @@
-.PHONY: run migrate-up migrate-down migration tidy reset
+.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy
 
 run:
 	go run cmd/main.go
@@ -12,6 +12,12 @@ migrate-down:
 reset:
 	docker compose down -v
 	docker compose up -d
+
+rebuild:
+	docker compose build app
+
+redeploy:
+	docker compose up -d --build --no-deps app
 
 migration:
 	@test -n "$(name)" || (echo "Error: name is required. Usage: make migration name=<name>"; exit 1)

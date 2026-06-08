@@ -113,7 +113,32 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 
 func (h *AuthHandler) Dashboard(c *gin.Context) {
 	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	username := session.Get("username").(string)
+
+	stats, err := models.GetGameStatistics(c.Request.Context(), h.db, userID)
+	if err != nil {
+		stats = map[string]int{
+			"owned":     0,
+			"playing":   0,
+			"completed": 0,
+			"dropped":   0,
+		}
+	}
+
+	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
+	if err != nil {
+		games = nil
+	}
+
 	c.HTML(http.StatusOK, "dashboard/index", gin.H{
-		"username": session.Get("username"),
+		"username": username,
+		"stats": map[string]int{
+			"Playing":   stats["playing"],
+			"Completed": stats["completed"],
+			"Backlog":   stats["owned"],
+			"Dropped":   stats["dropped"],
+		},
+		"groups": models.GroupUserGamesByPlatform(games),
 	})
 }

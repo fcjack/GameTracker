@@ -25,11 +25,14 @@
                     <div class="px-4 py-3 border-b border-gray-700">
                         <p class="text-sm text-gray-300">{{.username}}</p>
                     </div>
+                    <a href="/library" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-gamepad mr-2"></i>Game Library
+                    </a>
                     <a href="/profile" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        Profile
+                        <i class="fas fa-user mr-2"></i>Profile
                     </a>
                     <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        Change Password
+                        <i class="fas fa-lock mr-2"></i>Change Password
                     </a>
                     <form method="POST" action="/logout" class="block">
                         <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors rounded-b-lg">
@@ -57,40 +60,74 @@
     <main class="max-w-5xl mx-auto px-4 py-10">
         <div class="mb-8">
             <h2 class="text-2xl font-bold">Welcome back, {{.username}}</h2>
-            <p class="mt-1 text-gray-400 text-sm">Your game library is empty. Start by importing your Steam or Xbox library.</p>
-        </div>
-
-        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-10">
-            {{range $label, $count := .stats}}
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{$count}}</p>
-                <p class="mt-1 text-sm text-gray-400">{{$label}}</p>
-            </div>
+            {{if .groups}}
+            <p class="mt-1 text-gray-400 text-sm">Your library across platforms.</p>
             {{else}}
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
-                <p class="mt-1 text-sm text-gray-400">Playing</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
-                <p class="mt-1 text-sm text-gray-400">Finished</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
-                <p class="mt-1 text-sm text-gray-400">Backlog</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
-                <p class="mt-1 text-sm text-gray-400">Dropped</p>
-            </div>
+            <p class="mt-1 text-gray-400 text-sm">Your game library is empty. Start by importing your Steam or Xbox library.</p>
             {{end}}
         </div>
 
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-10">
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">{{index .stats "Playing"}}</p>
+                <p class="mt-1 text-sm text-gray-400">Playing</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">{{index .stats "Completed"}}</p>
+                <p class="mt-1 text-sm text-gray-400">Completed</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">{{index .stats "Backlog"}}</p>
+                <p class="mt-1 text-sm text-gray-400">Backlog</p>
+            </div>
+            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <p class="text-3xl font-bold">{{index .stats "Dropped"}}</p>
+                <p class="mt-1 text-sm text-gray-400">Dropped</p>
+            </div>
+        </div>
+
+        {{if .groups}}
+        {{range .groups}}
+        <section class="mb-10">
+            <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                {{.Platform}}
+                <span class="text-sm font-normal text-gray-500">({{len .Games}})</span>
+            </h3>
+            <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {{range .Games}}
+                <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden flex flex-col">
+                    {{if .CoverURL}}
+                    <img src="{{.CoverURL}}" alt="{{.Name}}"
+                         class="w-full aspect-[3/4] object-cover bg-gray-800">
+                    {{else}}
+                    <div class="w-full aspect-[3/4] bg-gray-800 flex items-center justify-center">
+                        <i class="fas fa-gamepad text-4xl text-gray-600"></i>
+                    </div>
+                    {{end}}
+                    <div class="p-3 flex flex-col gap-1 flex-1">
+                        <p class="text-sm font-medium leading-tight line-clamp-2" title="{{.Name}}">{{.Name}}</p>
+                        {{if .ReleaseYear}}
+                        <p class="text-xs text-gray-500">{{.ReleaseYear}}</p>
+                        {{end}}
+                        <p class="mt-auto text-xs text-gray-400 capitalize">{{.Status}}</p>
+                    </div>
+                </div>
+                {{end}}
+            </div>
+        </section>
+        {{end}}
+        {{else}}
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
             <p class="text-4xl mb-3">📭</p>
             <p class="font-semibold text-gray-200">No games yet</p>
             <p class="mt-1 text-sm text-gray-500">Import your library from Steam or Xbox to get started.</p>
+            <a href="/library"
+               class="inline-block mt-4 px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-500
+                      rounded-lg transition-colors">
+                Browse Game Library
+            </a>
         </div>
+        {{end}}
     </main>
 </body>
 </html>

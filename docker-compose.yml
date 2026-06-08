@@ -10,6 +10,12 @@ services:
       - XBOX_CLIENT_SECRET=${XBOX_CLIENT_SECRET}
       - SESSION_SECRET=${SESSION_SECRET}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - TWITCH_CLIENT_ID=${TWITCH_CLIENT_ID}
+      - TWITCH_CLIENT_SECRET=${TWITCH_CLIENT_SECRET}
+      - IGDB_BASE_URL=${IGDB_BASE_URL}
+    volumes:
+      - ./templates:/app/templates
+      - ./static:/app/static
     depends_on:
       db:
         condition: service_healthy

@@ -14,6 +14,7 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/crypto"
 	"github.com/jacksoncoelho/game-tracker/internal/database"
 	"github.com/jacksoncoelho/game-tracker/internal/handlers"
+	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/joho/godotenv"
 )
 
@@ -78,6 +79,17 @@ func main() {
 	profile := handlers.NewProfileHandler(db)
 	steam := handlers.NewSteamHandler(db)
 
+	igdbBaseURL := os.Getenv("IGDB_BASE_URL")
+	if igdbBaseURL == "" {
+		igdbBaseURL = "https://api.igdb.com/v4"
+	}
+	igdbClient := igdb.NewClient(
+		os.Getenv("TWITCH_CLIENT_ID"),
+		os.Getenv("TWITCH_CLIENT_SECRET"),
+		igdbBaseURL,
+	)
+	library := handlers.NewLibraryHandler(db, igdbClient)
+
 	r.GET("/", auth.HomePage)
 	r.GET("/login", auth.LoginPage)
 	r.POST("/login", auth.Login)
@@ -94,6 +106,12 @@ func main() {
 		protected.GET("/profile/avatar", profile.ServeAvatar)
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)
+		protected.GET("/library", library.LibraryPage)
+		protected.GET("/library/games", library.LibraryGrid)
+		protected.GET("/library/search", library.Search)
+		protected.POST("/library/games", library.AddGame)
+		protected.DELETE("/library/games/:game_id", library.RemoveGame)
+		protected.POST("/library/games/:game_id/status", library.UpdateStatus)
 	}
 
 	port := os.Getenv("APP_PORT")
