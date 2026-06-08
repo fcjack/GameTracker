@@ -53,9 +53,11 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 
 	c.HTML(http.StatusOK, "profile/index", gin.H{
 		"username":     username,
+		"activeNav":    "profile",
 		"hasAvatar":    hasAvatar,
 		"gravatarURL":  gravatarURL,
 		"steamAccount": steamAccount,
+		"error":        c.Query("error"),
 	})
 }
 
