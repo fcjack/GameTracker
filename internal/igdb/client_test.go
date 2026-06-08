@@ -228,4 +228,3 @@ func TestSearchTokenRequestFailure(t *testing.T) {
 		t.Fatalf("expected token failure error, got %v", err)
 	}
 }
-

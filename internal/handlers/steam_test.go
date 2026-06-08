@@ -350,4 +350,3 @@ func uniqueUsername(t *testing.T) string {
 	t.Helper()
 	return "testuser_" + strings.ReplaceAll(t.Name(), "/", "_")
 }
-
