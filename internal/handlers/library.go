@@ -59,16 +59,18 @@ func (h *LibraryHandler) LibraryPage(c *gin.Context) {
 	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
 	if err != nil {
 		c.HTML(http.StatusInternalServerError, "library/index", gin.H{
-			"error":    "Failed to load library",
-			"username": username,
-			"games":    nil,
+			"error":     "Failed to load library",
+			"username":  username,
+			"activeNav": "library",
+			"games":     nil,
 		})
 		return
 	}
 
 	c.HTML(http.StatusOK, "library/index", gin.H{
-		"username": username,
-		"games":    games,
+		"username":  username,
+		"activeNav": "library",
+		"games":     games,
 	})
 }
 

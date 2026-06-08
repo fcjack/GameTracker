@@ -140,9 +140,10 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
 
 	c.HTML(http.StatusOK, "dashboard/index", gin.H{
-		"username": username,
-		"hasGames": hasGames,
-		"stats":    stats,
+		"username":  username,
+		"activeNav": "dashboard",
+		"hasGames":  hasGames,
+		"stats":     stats,
 	})
 }
 

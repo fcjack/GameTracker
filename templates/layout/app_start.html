@@ -1,0 +1,97 @@
+{{define "layout/app_start"}}
+<div id="sidebarBackdrop"
+     class="hidden fixed inset-0 bg-black/60 z-40 md:hidden"
+     onclick="closeMobileSidebar()"
+     aria-hidden="true"></div>
+
+<div class="flex min-h-screen">
+    <aside id="sidebar"
+           class="fixed md:sticky top-0 left-0 z-50 md:z-30 h-screen
+                  bg-gray-900 border-r border-gray-800 flex flex-col shrink-0
+                  transition-all duration-200 ease-in-out
+                  -translate-x-full md:translate-x-0 w-64">
+
+        <div id="sidebarHeader" class="flex items-center gap-2 px-3 h-14 border-b border-gray-800 shrink-0 overflow-hidden">
+            <img src="/static/icons/icon-192.png" alt="" class="w-8 h-8 rounded-lg shrink-0">
+            <span class="sidebar-label font-bold truncate">Helios Gaming tracker</span>
+        </div>
+
+        <div class="px-3 py-3 border-b border-gray-800 shrink-0 overflow-hidden">
+            <p class="sidebar-label text-xs text-gray-500 uppercase tracking-wide">Signed in as</p>
+            <p class="sidebar-label text-sm text-gray-200 font-medium truncate">{{.username}}</p>
+            <p class="sidebar-icon-only hidden text-center text-sm text-gray-200 font-medium"
+               title="{{.username}}">
+                <i class="fas fa-user"></i>
+            </p>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-2">
+            <a href="/dashboard"
+               onclick="closeMobileSidebar()"
+               title="Dashboard"
+               class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
+                      {{if eq .activeNav "dashboard"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
+                <i class="fas fa-house w-5 text-center shrink-0"></i>
+                <span class="sidebar-label truncate">Dashboard</span>
+            </a>
+            <a href="/library"
+               onclick="closeMobileSidebar()"
+               title="Game Library"
+               class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
+                      {{if eq .activeNav "library"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
+                <i class="fas fa-gamepad w-5 text-center shrink-0"></i>
+                <span class="sidebar-label truncate">Game Library</span>
+            </a>
+            <a href="/profile"
+               onclick="closeMobileSidebar()"
+               title="Profile"
+               class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
+                      {{if eq .activeNav "profile"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
+                <i class="fas fa-user w-5 text-center shrink-0"></i>
+                <span class="sidebar-label truncate">Profile</span>
+            </a>
+        </nav>
+
+        <div class="p-2 border-t border-gray-800 shrink-0 space-y-1">
+            <button type="button"
+                    id="sidebarCollapseBtn"
+                    onclick="toggleSidebarCollapse()"
+                    title="Collapse sidebar"
+                    class="hidden md:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                           text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
+                <i id="sidebarCollapseIcon" class="fas fa-angles-left w-5 text-center shrink-0"></i>
+                <span class="sidebar-label truncate">Collapse</span>
+            </button>
+            <form method="POST" action="/logout">
+                <button type="submit"
+                        title="Sign out"
+                        class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
+                               text-gray-300 hover:text-white hover:bg-gray-800 transition-colors">
+                    <i class="fas fa-right-from-bracket w-5 text-center shrink-0"></i>
+                    <span class="sidebar-label truncate">Sign out</span>
+                </button>
+            </form>
+        </div>
+    </aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+        <header class="sticky top-0 z-20 h-14 border-b border-gray-800 bg-gray-900
+                       flex items-center gap-3 px-4 shrink-0">
+            <button type="button"
+                    id="sidebarToggle"
+                    onclick="toggleSidebar()"
+                    aria-label="Toggle menu"
+                    aria-controls="sidebar"
+                    class="text-gray-400 hover:text-white transition-colors p-2 rounded-lg
+                           hover:bg-gray-800 shrink-0">
+                <i class="fas fa-bars text-lg"></i>
+            </button>
+            <a href="/dashboard"
+               class="md:hidden font-bold text-white truncate min-w-0">
+                Helios Gaming tracker
+            </a>
+        </header>
+
+        <div class="flex-1">
+
+{{end}}

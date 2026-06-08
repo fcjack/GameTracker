@@ -1,0 +1,130 @@
+{{define "layout/app_end"}}
+        </div>
+    </div>
+</div>
+
+<style>
+    #sidebar.sidebar-collapsed {
+        width: 4rem;
+    }
+    #sidebar.sidebar-collapsed #sidebarHeader {
+        justify-content: center;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    #sidebar.sidebar-collapsed .sidebar-label {
+        display: none;
+    }
+    #sidebar.sidebar-collapsed .sidebar-icon-only {
+        display: block;
+    }
+    #sidebar.sidebar-collapsed .sidebar-link {
+        justify-content: center;
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    #sidebar.sidebar-collapsed #sidebarCollapseBtn .sidebar-label {
+        display: none;
+    }
+    #sidebar.sidebar-collapsed #sidebarCollapseBtn {
+        justify-content: center;
+    }
+</style>
+
+<script>
+    const SIDEBAR_MODE_KEY = 'heliosSidebarMode';
+
+    function isDesktop() {
+        return window.matchMedia('(min-width: 768px)').matches;
+    }
+
+    function applySidebarMode(mode) {
+        const sidebar = document.getElementById('sidebar');
+        const icon = document.getElementById('sidebarCollapseIcon');
+        const collapseBtn = document.getElementById('sidebarCollapseBtn');
+        if (!sidebar) return;
+
+        if (mode === 'collapsed' && isDesktop()) {
+            sidebar.classList.add('sidebar-collapsed');
+            if (icon) icon.className = 'fas fa-angles-right w-5 text-center shrink-0';
+            if (collapseBtn) collapseBtn.title = 'Expand sidebar';
+        } else {
+            sidebar.classList.remove('sidebar-collapsed');
+            if (icon) icon.className = 'fas fa-angles-left w-5 text-center shrink-0';
+            if (collapseBtn) collapseBtn.title = 'Collapse sidebar';
+        }
+    }
+
+    function loadSidebarMode() {
+        const saved = localStorage.getItem(SIDEBAR_MODE_KEY);
+        applySidebarMode(saved === 'collapsed' ? 'collapsed' : 'expanded');
+    }
+
+    function toggleSidebarCollapse() {
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar || !isDesktop()) return;
+
+        const collapsed = sidebar.classList.toggle('sidebar-collapsed');
+        localStorage.setItem(SIDEBAR_MODE_KEY, collapsed ? 'collapsed' : 'expanded');
+        applySidebarMode(collapsed ? 'collapsed' : 'expanded');
+    }
+
+    function openMobileSidebar() {
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        if (!sidebar || !backdrop) return;
+
+        sidebar.classList.remove('-translate-x-full');
+        backdrop.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+    }
+
+    function closeMobileSidebar() {
+        if (isDesktop()) return;
+
+        const sidebar = document.getElementById('sidebar');
+        const backdrop = document.getElementById('sidebarBackdrop');
+        if (!sidebar || !backdrop) return;
+
+        sidebar.classList.add('-translate-x-full');
+        backdrop.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+    }
+
+    function toggleSidebar() {
+        if (isDesktop()) {
+            toggleSidebarCollapse();
+            return;
+        }
+
+        const sidebar = document.getElementById('sidebar');
+        if (!sidebar) return;
+
+        if (sidebar.classList.contains('-translate-x-full')) {
+            openMobileSidebar();
+        } else {
+            closeMobileSidebar();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadSidebarMode);
+
+    window.addEventListener('resize', function() {
+        if (isDesktop()) {
+            closeMobileSidebar();
+            loadSidebarMode();
+        } else {
+            document.getElementById('sidebar')?.classList.add('-translate-x-full');
+            document.getElementById('sidebar')?.classList.remove('sidebar-collapsed');
+            document.getElementById('sidebarBackdrop')?.classList.add('hidden');
+            document.body.classList.remove('overflow-hidden');
+        }
+    });
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeMobileSidebar();
+        }
+    });
+</script>
+{{end}}
