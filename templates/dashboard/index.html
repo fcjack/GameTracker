@@ -25,11 +25,14 @@
                     <div class="px-4 py-3 border-b border-gray-700">
                         <p class="text-sm text-gray-300">{{.username}}</p>
                     </div>
+                    <a href="/library" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        <i class="fas fa-gamepad mr-2"></i>Game Library
+                    </a>
                     <a href="/profile" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        Profile
+                        <i class="fas fa-user mr-2"></i>Profile
                     </a>
                     <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
-                        Change Password
+                        <i class="fas fa-lock mr-2"></i>Change Password
                     </a>
                     <form method="POST" action="/logout" class="block">
                         <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors rounded-b-lg">
