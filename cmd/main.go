@@ -107,6 +107,7 @@ func main() {
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)
 		protected.GET("/library", library.LibraryPage)
+		protected.GET("/library/games", library.LibraryGrid)
 		protected.GET("/library/search", library.Search)
 		protected.POST("/library/games", library.AddGame)
 		protected.DELETE("/library/games/:game_id", library.RemoveGame)

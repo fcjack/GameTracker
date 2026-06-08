@@ -42,6 +42,20 @@ func (h *LibraryHandler) LibraryPage(c *gin.Context) {
 	})
 }
 
+func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
+	if err != nil {
+		games = nil
+	}
+
+	c.HTML(http.StatusOK, "library/game_grid", gin.H{
+		"games": games,
+	})
+}
+
 func (h *LibraryHandler) Search(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)

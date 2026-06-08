@@ -45,6 +45,7 @@
                     hx-post="/library/games"
                     hx-target="closest .game-card"
                     hx-swap="outerHTML"
+                    hx-on="htmx:afterSwap: clearSearchAndRefresh()"
                     class="w-full">
                     <input type="hidden" name="igdb_id"            value="{{.ID}}">
                     <input type="hidden" name="name"               value="{{.Name}}">

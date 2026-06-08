@@ -159,3 +159,35 @@ func IsInLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (b
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(&exists)
 	return exists, err
 }
+
+func GetGameStatistics(ctx context.Context, db *pgxpool.Pool, userID int64) (map[string]int, error) {
+	const query = `
+		SELECT status, COUNT(*) as count
+		FROM user_games
+		WHERE user_id = $1
+		GROUP BY status
+	`
+	rows, err := db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stats := map[string]int{
+		"owned":     0,
+		"playing":   0,
+		"completed": 0,
+		"dropped":   0,
+	}
+
+	for rows.Next() {
+		var status string
+		var count int
+		err := rows.Scan(&status, &count)
+		if err != nil {
+			return nil, err
+		}
+		stats[status] = count
+	}
+	return stats, rows.Err()
+}

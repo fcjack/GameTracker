@@ -64,29 +64,22 @@
         </div>
 
         <div class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-10">
-            {{range $label, $count := .stats}}
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{$count}}</p>
-                <p class="mt-1 text-sm text-gray-400">{{$label}}</p>
-            </div>
-            {{else}}
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
+                <p class="text-3xl font-bold">{{index .stats "Playing"}}</p>
                 <p class="mt-1 text-sm text-gray-400">Playing</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
-                <p class="mt-1 text-sm text-gray-400">Finished</p>
+                <p class="text-3xl font-bold">{{index .stats "Completed"}}</p>
+                <p class="mt-1 text-sm text-gray-400">Completed</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
+                <p class="text-3xl font-bold">{{index .stats "Backlog"}}</p>
                 <p class="mt-1 text-sm text-gray-400">Backlog</p>
             </div>
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">0</p>
+                <p class="text-3xl font-bold">{{index .stats "Dropped"}}</p>
                 <p class="mt-1 text-sm text-gray-400">Dropped</p>
             </div>
-            {{end}}
         </div>
 
         <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
