@@ -51,12 +51,21 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
+	var steamImportJob *models.ImportJob
+	if steamAccount != nil {
+		job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "steam")
+		if err == nil {
+			steamImportJob = job
+		}
+	}
+
 	c.HTML(http.StatusOK, "profile/index", gin.H{
 		"username":        username,
 		"activeNav":       "profile",
 		"hasAvatar":       hasAvatar,
 		"gravatarURL":     gravatarURL,
 		"steamAccount":    steamAccount,
+		"steamImportJob":  steamImportJob,
 		"error":           c.Query("error"),
 		"passwordError":   c.Query("password_error"),
 		"passwordSuccess": c.Query("password_success") == "1",

@@ -213,6 +213,71 @@ func TestSearchUnauthorizedClearsToken(t *testing.T) {
 	}
 }
 
+func TestLookupIGDBIDBySteamAppID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/external_games":
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), `uid = "730"`) {
+				t.Errorf("external_games body = %q, expected steam app id 730", string(body))
+			}
+			json.NewEncoder(w).Encode([]externalGameResult{{Game: 12345}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.tokenURL = server.URL + "/token"
+	client.httpClient = server.Client()
+
+	igdbID, err := client.LookupIGDBIDBySteamAppID(730)
+	if err != nil {
+		t.Fatalf("LookupIGDBIDBySteamAppID() error = %v", err)
+	}
+	if igdbID != 12345 {
+		t.Errorf("igdb id = %d, want 12345", igdbID)
+	}
+}
+
+func TestGetGameByID(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			json.NewEncoder(w).Encode([]SearchResult{
+				{
+					ID:               99,
+					Name:             "Portal",
+					Category:         0,
+					FirstReleaseDate: time.Date(2007, 10, 10, 0, 0, 0, 0, time.UTC).Unix(),
+					Cover:            &Cover{URL: "//images.igdb.com/igdb/image/upload/t_thumb/co99.jpg"},
+					Platforms:        []Platform{{Name: "PC (Microsoft Windows)"}},
+				},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.tokenURL = server.URL + "/token"
+	client.httpClient = server.Client()
+
+	game, err := client.GetGameByID(99)
+	if err != nil {
+		t.Fatalf("GetGameByID() error = %v", err)
+	}
+	if game == nil || game.Name != "Portal" {
+		t.Fatalf("GetGameByID() = %+v, want Portal", game)
+	}
+}
+
 func TestSearchTokenRequestFailure(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)

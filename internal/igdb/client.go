@@ -10,6 +10,12 @@ import (
 	"time"
 )
 
+const (
+	externalGameCategorySteam = 1
+	// IGDB allows 4 requests/second; stay under with a 300ms minimum gap.
+	minRequestInterval = 300 * time.Millisecond
+)
+
 type Client struct {
 	clientID     string
 	clientSecret string
@@ -20,6 +26,9 @@ type Client struct {
 	mu          sync.RWMutex
 	accessToken string
 	tokenExpiry time.Time
+
+	rateMu       sync.Mutex
+	lastRequest  time.Time
 }
 
 type tokenResponse struct {
@@ -95,20 +104,26 @@ func (c *Client) ensureToken() error {
 	return nil
 }
 
-func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
+func (c *Client) waitForRateLimit() {
+	c.rateMu.Lock()
+	defer c.rateMu.Unlock()
+
+	if elapsed := time.Since(c.lastRequest); elapsed < minRequestInterval {
+		time.Sleep(minRequestInterval - elapsed)
+	}
+	c.lastRequest = time.Now()
+}
+
+func (c *Client) post(endpoint, body string, dest any) error {
 	if err := c.ensureToken(); err != nil {
-		return nil, err
+		return err
 	}
 
-	body := fmt.Sprintf(
-		`fields name,cover.url,first_release_date,platforms.name,category; search "%s"; limit %d;`,
-		strings.ReplaceAll(query, `"`, `\"`),
-		limit,
-	)
+	c.waitForRateLimit()
 
-	req, err := http.NewRequest(http.MethodPost, c.baseURL+"/games", strings.NewReader(body))
+	req, err := http.NewRequest(http.MethodPost, c.baseURL+endpoint, strings.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("igdb: build request: %w", err)
+		return fmt.Errorf("igdb: build request: %w", err)
 	}
 
 	c.mu.RLock()
@@ -121,28 +136,44 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("igdb: search request: %w", err)
+		return fmt.Errorf("igdb: request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		// Token may have been revoked; clear it
 		c.mu.Lock()
 		c.accessToken = ""
 		c.mu.Unlock()
-		return nil, fmt.Errorf("igdb: unauthorized — token invalidated, retry")
+		return fmt.Errorf("igdb: unauthorized — token invalidated, retry")
+	}
+
+	if resp.StatusCode == http.StatusTooManyRequests {
+		time.Sleep(2 * time.Second)
+		return fmt.Errorf("igdb: rate limited")
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("igdb: search returned %d", resp.StatusCode)
+		return fmt.Errorf("igdb: request returned %d", resp.StatusCode)
 	}
+
+	if err := json.NewDecoder(resp.Body).Decode(dest); err != nil {
+		return fmt.Errorf("igdb: decode response: %w", err)
+	}
+	return nil
+}
+
+func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
+	body := fmt.Sprintf(
+		`fields name,cover.url,first_release_date,platforms.name,category; search "%s"; limit %d;`,
+		strings.ReplaceAll(query, `"`, `\"`),
+		limit,
+	)
 
 	var results []SearchResult
-	if err := json.NewDecoder(resp.Body).Decode(&results); err != nil {
-		return nil, fmt.Errorf("igdb: decode search results: %w", err)
+	if err := c.post("/games", body, &results); err != nil {
+		return nil, err
 	}
 
-	// Post-process: normalize cover URLs
 	for i := range results {
 		if results[i].Cover != nil {
 			results[i].Cover.URL = normalizeCoverURL(results[i].Cover.URL)
@@ -150,6 +181,46 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 	}
 
 	return results, nil
+}
+
+type externalGameResult struct {
+	Game int64 `json:"game"`
+}
+
+func (c *Client) LookupIGDBIDBySteamAppID(appID int) (int64, error) {
+	body := fmt.Sprintf(
+		`fields game; where uid = "%d" & category = %d; limit 1;`,
+		appID, externalGameCategorySteam,
+	)
+
+	var results []externalGameResult
+	if err := c.post("/external_games", body, &results); err != nil {
+		return 0, err
+	}
+	if len(results) == 0 || results[0].Game == 0 {
+		return 0, nil
+	}
+	return results[0].Game, nil
+}
+
+func (c *Client) GetGameByID(id int64) (*SearchResult, error) {
+	body := fmt.Sprintf(
+		`fields name,cover.url,first_release_date,platforms.name,category; where id = %d; limit 1;`,
+		id,
+	)
+
+	var results []SearchResult
+	if err := c.post("/games", body, &results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, nil
+	}
+
+	if results[0].Cover != nil {
+		results[0].Cover.URL = normalizeCoverURL(results[0].Cover.URL)
+	}
+	return &results[0], nil
 }
 
 func normalizeCoverURL(raw string) string {

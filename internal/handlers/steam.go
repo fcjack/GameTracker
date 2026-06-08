@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,18 +18,24 @@ import (
 )
 
 type SteamHandler struct {
-	db          *pgxpool.Pool
-	openIDURL   string
-	steamAPIURL string
-	httpClient  *http.Client
+	db            *pgxpool.Pool
+	importService steamImportStarter
+	openIDURL     string
+	steamAPIURL   string
+	httpClient    *http.Client
 }
 
-func NewSteamHandler(db *pgxpool.Pool) *SteamHandler {
+type steamImportStarter interface {
+	StartSteamImport(ctx context.Context, userID int64, steamID string) (*models.ImportJob, error)
+}
+
+func NewSteamHandler(db *pgxpool.Pool, importService steamImportStarter) *SteamHandler {
 	return &SteamHandler{
-		db:          db,
-		openIDURL:   "https://steamcommunity.com/openid/login",
-		steamAPIURL: "https://api.steampowered.com",
-		httpClient:  http.DefaultClient,
+		db:            db,
+		importService: importService,
+		openIDURL:     "https://steamcommunity.com/openid/login",
+		steamAPIURL:   "https://api.steampowered.com",
+		httpClient:    http.DefaultClient,
 	}
 }
 
@@ -118,6 +125,10 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 	if err != nil {
 		c.Redirect(http.StatusFound, "/profile?error=Failed+to+link+account")
 		return
+	}
+
+	if h.importService != nil {
+		_, _ = h.importService.StartSteamImport(c.Request.Context(), userID, steamIDStr)
 	}
 
 	c.Redirect(http.StatusFound, "/profile")

@@ -15,6 +15,7 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/database"
 	"github.com/jacksoncoelho/game-tracker/internal/handlers"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
+	"github.com/jacksoncoelho/game-tracker/internal/importjob"
 	"github.com/joho/godotenv"
 )
 
@@ -73,11 +74,14 @@ func main() {
 	r := gin.Default()
 	r.SetHTMLTemplate(loadTemplates("templates"))
 	r.Static("/static", "./static")
+	r.GET("/service-worker.js", func(c *gin.Context) {
+		c.Header("Cache-Control", "no-cache")
+		c.File("./static/service-worker.js")
+	})
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
 
 	auth := handlers.NewAuthHandler(db)
 	profile := handlers.NewProfileHandler(db)
-	steam := handlers.NewSteamHandler(db)
 
 	igdbBaseURL := os.Getenv("IGDB_BASE_URL")
 	if igdbBaseURL == "" {
@@ -88,6 +92,9 @@ func main() {
 		os.Getenv("TWITCH_CLIENT_SECRET"),
 		igdbBaseURL,
 	)
+	importService := importjob.NewService(db, igdbClient)
+	steam := handlers.NewSteamHandler(db, importService)
+	importHandler := handlers.NewImportHandler(db, importService)
 	library := handlers.NewLibraryHandler(db, igdbClient)
 
 	r.GET("/", auth.LoginPage)
@@ -108,6 +115,8 @@ func main() {
 		protected.GET("/profile/avatar", profile.ServeAvatar)
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)
+		protected.POST("/profile/steam/import", importHandler.StartSteamImport)
+		protected.GET("/profile/steam/import-status", importHandler.SteamImportStatus)
 		protected.GET("/library", library.LibraryPage)
 		protected.GET("/library/games", library.LibraryGrid)
 		protected.GET("/library/search", library.Search)

@@ -5,10 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Profile — Helios Gaming tracker</title>
-    <link rel="icon" href="/static/icons/icon-192.png">
-    <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+    {{template "layout/pwa_head" .}}
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="/static/manifest.json">
+    <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body class="min-h-screen bg-gray-950 text-white">
@@ -130,24 +129,39 @@
             <h2 class="text-xl font-bold mb-6">Linked Accounts</h2>
             <div class="space-y-4">
                 <!-- Steam Account -->
-                <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div class="flex items-center gap-3">
-                        <i class="fab fa-steam text-lg" style="color: #1b9ffa;"></i>
-                        <div>
-                            <p class="font-medium">Steam</p>
-                            {{if .steamAccount}}
-                            <p class="text-sm text-gray-400">{{.steamAccount.DisplayName}} ({{.steamAccount.ExternalID}})</p>
-                            {{else}}
-                            <p class="text-sm text-gray-400">Not linked</p>
-                            {{end}}
+                <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-steam text-lg" style="color: #1b9ffa;"></i>
+                            <div>
+                                <p class="font-medium">Steam</p>
+                                {{if .steamAccount}}
+                                <p class="text-sm text-gray-400">{{.steamAccount.DisplayName}} ({{.steamAccount.ExternalID}})</p>
+                                {{else}}
+                                <p class="text-sm text-gray-400">Not linked</p>
+                                {{end}}
+                            </div>
                         </div>
+                        {{if .steamAccount}}
+                        <div class="flex items-center gap-2">
+                            {{if not (and .steamImportJob .steamImportJob.IsActive)}}
+                            <form method="POST" action="/profile/steam/import">
+                                <button type="submit"
+                                        class="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
+                                    Sync Library
+                                </button>
+                            </form>
+                            {{end}}
+                            <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">Linked</span>
+                        </div>
+                        {{else}}
+                        <a href="/auth/steam" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                            Link Account
+                        </a>
+                        {{end}}
                     </div>
                     {{if .steamAccount}}
-                    <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">Linked</span>
-                    {{else}}
-                    <a href="/auth/steam" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
-                        Link Account
-                    </a>
+                    {{template "profile/steam_import_status" .}}
                     {{end}}
                 </div>
 
