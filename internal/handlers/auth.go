@@ -74,9 +74,9 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	if len(password) < 8 {
+	if len(password) < 5 {
 		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
-			"error": "Password must be at least 8 characters",
+			"error": "Password must be at least 5 characters",
 		})
 		return
 	}
