@@ -75,6 +75,8 @@ func main() {
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
 
 	auth := handlers.NewAuthHandler(db)
+	profile := handlers.NewProfileHandler(db)
+	steam := handlers.NewSteamHandler(db)
 
 	r.GET("/", auth.HomePage)
 	r.GET("/login", auth.LoginPage)
@@ -87,6 +89,11 @@ func main() {
 	protected.Use(handlers.AuthRequired())
 	{
 		protected.GET("/dashboard", auth.Dashboard)
+		protected.GET("/profile", profile.ProfilePage)
+		protected.POST("/profile/avatar", profile.UploadAvatar)
+		protected.GET("/profile/avatar", profile.ServeAvatar)
+		protected.GET("/auth/steam", steam.Initiate)
+		protected.GET("/auth/steam/callback", steam.Callback)
 	}
 
 	port := os.Getenv("APP_PORT")

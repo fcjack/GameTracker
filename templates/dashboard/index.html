@@ -8,6 +8,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
     <link rel="manifest" href="/static/manifest.json">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 </head>
 <body class="h-full bg-gray-950 text-white">
     <nav class="border-b border-gray-800 bg-gray-900">
@@ -16,17 +17,40 @@
                 <span class="text-xl">🎮</span>
                 Game Tracker
             </a>
-            <div class="flex items-center gap-4">
-                <span class="text-sm text-gray-400">{{.username}}</span>
-                <form method="POST" action="/logout">
-                    <button
-                        type="submit"
-                        class="text-sm text-gray-400 hover:text-white transition-colors"
-                    >
-                        Sign out
-                    </button>
-                </form>
+            <div class="relative">
+                <button onclick="toggleUserMenu()" class="text-gray-400 hover:text-white transition-colors p-2">
+                    <i class="fas fa-bars text-lg"></i>
+                </button>
+                <div id="userMenu" class="hidden absolute right-0 mt-2 w-48 bg-gray-800 rounded-lg border border-gray-700 shadow-lg z-50">
+                    <div class="px-4 py-3 border-b border-gray-700">
+                        <p class="text-sm text-gray-300">{{.username}}</p>
+                    </div>
+                    <a href="/profile" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        Profile
+                    </a>
+                    <a href="#" class="block px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors">
+                        Change Password
+                    </a>
+                    <form method="POST" action="/logout" class="block">
+                        <button type="submit" class="w-full text-left px-4 py-2 text-sm text-gray-300 hover:text-white hover:bg-gray-700 transition-colors rounded-b-lg">
+                            Sign out
+                        </button>
+                    </form>
+                </div>
             </div>
+            <script>
+                function toggleUserMenu() {
+                    const menu = document.getElementById('userMenu');
+                    menu.classList.toggle('hidden');
+                }
+                document.addEventListener('click', function(event) {
+                    const menu = document.getElementById('userMenu');
+                    const button = event.target.closest('button');
+                    if (!button || !button.onclick) {
+                        menu.classList.add('hidden');
+                    }
+                });
+            </script>
         </div>
     </nav>
 

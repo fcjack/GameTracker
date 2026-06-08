@@ -43,3 +43,20 @@ func GetUserByUsername(ctx context.Context, db *pgxpool.Pool, username string) (
 func (u *User) CheckPassword(password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(u.PasswordHash), []byte(password)) == nil
 }
+
+func UpdateAvatar(ctx context.Context, db *pgxpool.Pool, userID int64, data []byte, mime string) error {
+	const query = `UPDATE users SET avatar_data = $2, avatar_mime = $3 WHERE id = $1`
+	_, err := db.Exec(ctx, query, userID, data, mime)
+	return err
+}
+
+func GetAvatarByUserID(ctx context.Context, db *pgxpool.Pool, userID int64) ([]byte, string, error) {
+	const query = `SELECT avatar_data, avatar_mime FROM users WHERE id = $1`
+	var data []byte
+	var mime string
+	err := db.QueryRow(ctx, query, userID).Scan(&data, &mime)
+	if err != nil {
+		return nil, "", err
+	}
+	return data, mime, nil
+}
