@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
-	"github.com/jacksoncoelho/game-tracker/internal/models"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
 type AuthHandler struct {

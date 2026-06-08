@@ -86,7 +86,7 @@ func TestNewEncrypterInvalidKey(t *testing.T) {
 		wantErr bool
 	}{
 		{"invalid hex", "not-valid-hex", true},
-		{"too short", "0102030405060708090a0b0c0d0e0f10", true}, // 16 bytes, need 32
+		{"too short", "0102030405060708090a0b0c0d0e0f10", true},                                  // 16 bytes, need 32
 		{"too long", "0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f2021", true}, // 33 bytes
 	}
 
