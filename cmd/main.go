@@ -101,6 +101,7 @@ func main() {
 	protected.Use(handlers.AuthRequired())
 	{
 		protected.GET("/dashboard", auth.Dashboard)
+		protected.GET("/dashboard/stats", auth.DashboardStats)
 		protected.GET("/profile", profile.ProfilePage)
 		protected.POST("/profile/avatar", profile.UploadAvatar)
 		protected.GET("/profile/avatar", profile.ServeAvatar)

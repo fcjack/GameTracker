@@ -31,6 +31,10 @@
             <p class="text-xs text-gray-500">{{.ReleaseYear}}</p>
             {{end}}
 
+            {{if .Platform}}
+            <p class="text-xs text-gray-500 truncate" title="{{.Platform}}">{{.Platform}}</p>
+            {{end}}
+
             <div id="status-{{.GameID}}" class="mt-auto">
                 <select
                     name="status"

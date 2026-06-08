@@ -1,0 +1,2 @@
+ALTER TABLE user_games
+    ADD COLUMN platform VARCHAR(100) NOT NULL DEFAULT '';

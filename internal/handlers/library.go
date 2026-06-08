@@ -128,9 +128,33 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 	releaseYearStr := c.PostForm("release_year")
 	releaseYear, _ := strconv.Atoi(releaseYearStr)
 
-	platforms := c.PostFormArray("platforms")
-	if platforms == nil {
-		platforms = []string{}
+	allPlatforms := c.PostFormArray("platforms")
+	if allPlatforms == nil {
+		allPlatforms = []string{}
+	}
+
+	platform := strings.TrimSpace(c.PostForm("platform"))
+	switch len(allPlatforms) {
+	case 0:
+		// no platform metadata from IGDB
+	case 1:
+		platform = allPlatforms[0]
+	default:
+		if platform == "" {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		valid := false
+		for _, p := range allPlatforms {
+			if p == platform {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
 	}
 
 	categoryIGDBValueStr := c.PostForm("category_igdb_value")
@@ -148,14 +172,14 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 
 	game, err := models.FindOrCreateGame(
 		c.Request.Context(), h.db,
-		igdbID, name, coverURL, releaseYear, platforms, cat.ID,
+		igdbID, name, coverURL, releaseYear, allPlatforms, cat.ID,
 	)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save game"})
 		return
 	}
 
-	if err := models.AddToLibrary(c.Request.Context(), h.db, userID, game.ID); err != nil {
+	if err := models.AddToLibrary(c.Request.Context(), h.db, userID, game.ID, platform); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add to library"})
 		return
 	}
@@ -182,6 +206,7 @@ func (h *LibraryHandler) RemoveGame(c *gin.Context) {
 		return
 	}
 
+	c.Header("HX-Trigger", "libraryUpdated")
 	c.Status(http.StatusOK)
 }
 
@@ -210,7 +235,7 @@ func (h *LibraryHandler) UpdateStatus(c *gin.Context) {
 		return
 	}
 
-	// Return updated status badge fragment
+	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
 	c.HTML(http.StatusOK, "library/status_badge", gin.H{
 		"status": status,
 		"gameID": gameID,

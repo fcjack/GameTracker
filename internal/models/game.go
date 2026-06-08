@@ -41,7 +41,7 @@ type UserGameWithGame struct {
 	IGDBId       *int64
 	Name         string
 	CoverURL     string
-	Platforms    []string
+	Platform     string
 	ReleaseYear  int
 	CategoryName string
 	Status       string
@@ -57,13 +57,11 @@ type GamesByPlatform struct {
 func GroupUserGamesByPlatform(games []*UserGameWithGame) []GamesByPlatform {
 	platformMap := make(map[string][]*UserGameWithGame)
 	for _, g := range games {
-		if len(g.Platforms) == 0 {
-			platformMap["Unknown"] = append(platformMap["Unknown"], g)
-			continue
+		platform := g.Platform
+		if platform == "" {
+			platform = "Unknown"
 		}
-		for _, p := range g.Platforms {
-			platformMap[p] = append(platformMap[p], g)
-		}
+		platformMap[platform] = append(platformMap[platform], g)
 	}
 
 	platforms := make([]string, 0, len(platformMap))
@@ -109,20 +107,20 @@ func FindOrCreateGame(
 	return &g, err
 }
 
-func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) error {
+func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, platform string) error {
 	const query = `
-		INSERT INTO user_games (user_id, game_id, status, tags, created_at, updated_at)
-		VALUES ($1, $2, 'owned', '{}', NOW(), NOW())
+		INSERT INTO user_games (user_id, game_id, platform, status, tags, created_at, updated_at)
+		VALUES ($1, $2, $3, 'owned', '{}', NOW(), NOW())
 		ON CONFLICT (user_id, game_id) DO NOTHING
 	`
-	_, err := db.Exec(ctx, query, userID, gameID)
+	_, err := db.Exec(ctx, query, userID, gameID, platform)
 	return err
 }
 
 func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*UserGameWithGame, error) {
 	const query = `
 		SELECT
-			g.id, g.igdb_id, g.name, g.cover_url, g.platforms,
+			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
 			ug.status, ug.tags, ug.created_at
 		FROM user_games ug
@@ -141,7 +139,7 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 	for rows.Next() {
 		var ug UserGameWithGame
 		err := rows.Scan(
-			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platforms,
+			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
 			&ug.ReleaseYear, &ug.CategoryName,
 			&ug.Status, &ug.Tags, &ug.AddedAt,
 		)

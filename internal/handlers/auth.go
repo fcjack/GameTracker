@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -111,12 +112,8 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/login")
 }
 
-func (h *AuthHandler) Dashboard(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
-	username := session.Get("username").(string)
-
-	stats, err := models.GetGameStatistics(c.Request.Context(), h.db, userID)
+func dashboardStatsMap(ctx context.Context, db *pgxpool.Pool, userID int64) map[string]int {
+	stats, err := models.GetGameStatistics(ctx, db, userID)
 	if err != nil {
 		stats = map[string]int{
 			"owned":     0,
@@ -125,20 +122,34 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 			"dropped":   0,
 		}
 	}
-
-	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
-	if err != nil {
-		games = nil
+	return map[string]int{
+		"Playing":   stats["playing"],
+		"Completed": stats["completed"],
+		"Backlog":   stats["owned"],
+		"Dropped":   stats["dropped"],
 	}
+}
+
+func (h *AuthHandler) Dashboard(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	username := session.Get("username").(string)
+
+	stats := dashboardStatsMap(c.Request.Context(), h.db, userID)
+	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
 
 	c.HTML(http.StatusOK, "dashboard/index", gin.H{
 		"username": username,
-		"stats": map[string]int{
-			"Playing":   stats["playing"],
-			"Completed": stats["completed"],
-			"Backlog":   stats["owned"],
-			"Dropped":   stats["dropped"],
-		},
-		"groups": models.GroupUserGamesByPlatform(games),
+		"hasGames": hasGames,
+		"stats":    stats,
+	})
+}
+
+func (h *AuthHandler) DashboardStats(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	c.HTML(http.StatusOK, "dashboard/stats", gin.H{
+		"stats": dashboardStatsMap(c.Request.Context(), h.db, userID),
 	})
 }
