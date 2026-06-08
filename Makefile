@@ -1,4 +1,4 @@
-.PHONY: run migrate-up migrate-down migration tidy
+.PHONY: run migrate-up migrate-down migration tidy reset
 
 run:
 	go run cmd/main.go
@@ -8,6 +8,10 @@ migrate-up:
 
 migrate-down:
 	go run cmd/main.go migrate down
+
+reset:
+	docker compose down -v
+	docker compose up -d
 
 migration:
 	@test -n "$(name)" || (echo "Error: name is required. Usage: make migration name=<name>"; exit 1)
