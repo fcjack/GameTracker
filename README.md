@@ -1,10 +1,16 @@
-# 🎮 Game Tracker
+<p align="center">
+  <img src="static/icons/icon-192.png" alt="Helios Gaming tracker" width="128">
+</p>
+
+# Helios Gaming tracker
+
+[![CI](https://github.com/fcjack/GameTracker/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/fcjack/GameTracker/actions/workflows/ci.yml)
 
 A self-hosted personal game tracking application to manage and track gaming progress across multiple platforms. Installable as a PWA on mobile devices.
 
 ## Overview
 
-Game Tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, track your gaming progress and manage your personal backlog without any social features or third party dependencies.
+Helios Gaming tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, search IGDB for games, track your gaming progress, and manage your personal backlog without any social features or third-party dependencies.
 
 ---
 
@@ -24,13 +30,15 @@ Game Tracker is a lightweight web application built with Go that allows you to i
 
 ### Core
 - Import game library from Steam and Xbox
-- Track game status (Playing, Finished, Dropped, Backlog)
-- Track progress and gaming sessions
-- Simple personal dashboard
+- Search IGDB and add games to your library
+- Choose platform when adding multi-platform games
+- Track game status (Playing, Completed, Dropped, Backlog)
+- Dashboard with live stats and library management
+- Group library by platform
 
 ### PWA
-- Mobile first responsive design
-- Installable on mobile devices
+- Mobile-first responsive design
+- Installable on mobile devices with custom Helios icon
 - Offline support via Service Worker
 
 ---
@@ -41,7 +49,7 @@ Game Tracker is a lightweight web application built with Go that allows you to i
 |-----|---------|
 | **Steam API** | Game library import |
 | **Xbox API** | Game library import |
-| **IGDB API** | Game metadata |
+| **IGDB API** | Game search and metadata |
 
 ---
 
@@ -57,6 +65,7 @@ game-tracker/
 │   └── database/
 ├── templates/
 ├── static/
+│   ├── icons/
 │   ├── manifest.json
 │   └── service-worker.js
 ├── migrations/
@@ -71,10 +80,9 @@ game-tracker/
 
 ### Prerequisites
 
-- Go 1.22+
+- Go 1.25+
 - PostgreSQL 16+
 - Docker and Docker Compose
-- Node.js (TailwindCSS only)
 
 ### Environment Variables
 
@@ -82,9 +90,13 @@ Copy `.env.example` to `.env` and fill in the values:
 
 ```env
 DATABASE_URL=postgres://user:password@localhost:5432/gametracker
+SESSION_SECRET=
+ENCRYPTION_KEY=
 STEAM_API_KEY=
 XBOX_CLIENT_ID=
 XBOX_CLIENT_SECRET=
+TWITCH_CLIENT_ID=
+TWITCH_CLIENT_SECRET=
 APP_PORT=8080
 ```
 
@@ -92,8 +104,8 @@ APP_PORT=8080
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/game-tracker.git
-cd game-tracker
+git clone https://github.com/fcjack/GameTracker.git
+cd GameTracker
 
 # Copy environment variables
 cp .env.example .env
@@ -108,8 +120,8 @@ Application will be available at http://localhost:8080
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/game-tracker.git
-cd game-tracker
+git clone https://github.com/fcjack/GameTracker.git
+cd GameTracker
 
 # Copy environment variables
 cp .env.example .env
@@ -121,37 +133,20 @@ go mod download
 go run cmd/main.go
 ```
 
-### Docker Deployment
+### Useful Make Commands
 
-```dockerfile
-FROM golang:1.22-alpine AS builder
-
-WORKDIR /app
-
-COPY go.mod go.sum ./
-RUN go mod download
-
-COPY . .
-RUN go build -o game-tracker cmd/main.go
-
-FROM alpine:latest
-
-WORKDIR /app
-
-COPY --from=builder /app/game-tracker .
-COPY --from=builder /app/templates ./templates
-COPY --from=builder /app/static ./static
-COPY --from=builder /app/migrations ./migrations
-
-EXPOSE 8080
-
-CMD ["./game-tracker"]
+```bash
+make run       # Run locally without Docker
+make redeploy  # Rebuild and restart the app container
+make reset     # Reset database volumes and restart
+make tidy      # Tidy Go module dependencies
+go test ./...  # Run tests
 ```
 
 ### PWA Installation
 
 1. Open the application in your mobile browser
 2. Tap **Add to Home Screen**
-3. Enjoy the native app experience
+3. The Helios icon will appear on your home screen
 
 > **Note:** HTTPS is required for PWA features in production
