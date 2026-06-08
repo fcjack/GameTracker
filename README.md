@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="static/icons/icon-192.png" alt="Helios Gaming tracker" width="128">
+  <img src="static/icons/icon-192.png" alt="Helios Gaming tracker" width="128" height="128">
 </p>
 
 # Helios Gaming tracker
