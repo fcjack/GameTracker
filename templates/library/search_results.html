@@ -55,21 +55,7 @@
                     {{range .Platforms}}
                     <input type="hidden" name="platforms"           value="{{.Name}}">
                     {{end}}
-                    {{if gt (len .Platforms) 1}}
-                    <select
-                        name="platform"
-                        required
-                        class="w-full text-xs bg-gray-700 border border-gray-600
-                               rounded-lg px-2 py-1.5 text-white focus:outline-none
-                               focus:border-indigo-500 cursor-pointer">
-                        <option value="" disabled selected>Select platform</option>
-                        {{range .Platforms}}
-                        <option value="{{.Name}}">{{.Name}}</option>
-                        {{end}}
-                    </select>
-                    {{else if eq (len .Platforms) 1}}
-                    <input type="hidden" name="platform" value="{{(index .Platforms 0).Name}}">
-                    {{end}}
+                    {{template "library/platform_picker" .Platforms}}
                     <button type="submit"
                             class="w-full text-xs bg-indigo-600 hover:bg-indigo-500
                                    text-white rounded-lg px-3 py-2 transition-colors">

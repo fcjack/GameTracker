@@ -1,0 +1,26 @@
+{{define "library/group_by_control"}}
+<div class="flex flex-col gap-1.5 sm:items-end">
+    <span class="text-sm text-gray-400">Group by</span>
+    <div class="inline-flex rounded-lg border border-gray-700 bg-gray-800 p-1"
+         role="group" aria-label="Group library by">
+        <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm text-gray-300
+                      transition-colors has-[:checked]:bg-indigo-600 has-[:checked]:text-white">
+            <input type="radio" name="group_by" value="" class="sr-only" checked
+                   hx-get="/library/games"
+                   hx-target="#library-section"
+                   hx-trigger="change"
+                   hx-include="[name='group_by']:checked">
+            All games
+        </label>
+        <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm text-gray-300
+                      transition-colors has-[:checked]:bg-indigo-600 has-[:checked]:text-white">
+            <input type="radio" name="group_by" value="platform" class="sr-only"
+                   hx-get="/library/games"
+                   hx-target="#library-section"
+                   hx-trigger="change"
+                   hx-include="[name='group_by']:checked">
+            Platform
+        </label>
+    </div>
+</div>
+{{end}}

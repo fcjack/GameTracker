@@ -1,0 +1,19 @@
+{{define "library/platform_picker"}}
+{{if gt (len .) 1}}
+<p class="text-xs text-gray-400">Select platform</p>
+<div class="flex flex-col gap-1.5">
+    {{range $i, $p := .}}
+    <label class="cursor-pointer rounded-lg border border-gray-600 px-2 py-1.5 text-xs
+                  text-gray-300 transition-colors text-left
+                  has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-600/20
+                  has-[:checked]:text-white">
+        <input type="radio" name="platform" value="{{$p.Name}}" class="sr-only"
+               {{if eq $i 0}}required{{end}}>
+        {{$p.Name}}
+    </label>
+    {{end}}
+</div>
+{{else if eq (len .) 1}}
+<input type="hidden" name="platform" value="{{(index . 0).Name}}">
+{{end}}
+{{end}}

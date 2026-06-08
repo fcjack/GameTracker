@@ -17,6 +17,36 @@ type LibraryHandler struct {
 	igdb *igdb.Client
 }
 
+type libraryGameCard struct {
+	*models.UserGameWithGame
+	ShowPlatform bool
+}
+
+type libraryGameGroup struct {
+	Platform string
+	Games    []libraryGameCard
+}
+
+func toLibraryCards(games []*models.UserGameWithGame, showPlatform bool) []libraryGameCard {
+	cards := make([]libraryGameCard, len(games))
+	for i, g := range games {
+		cards[i] = libraryGameCard{UserGameWithGame: g, ShowPlatform: showPlatform}
+	}
+	return cards
+}
+
+func toLibraryGroups(games []*models.UserGameWithGame) []libraryGameGroup {
+	grouped := models.GroupUserGamesByPlatform(games)
+	groups := make([]libraryGameGroup, len(grouped))
+	for i, g := range grouped {
+		groups[i] = libraryGameGroup{
+			Platform: g.Platform,
+			Games:    toLibraryCards(g.Games, false),
+		}
+	}
+	return groups
+}
+
 func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandler {
 	return &LibraryHandler{db: db, igdb: igdbClient}
 }
@@ -51,9 +81,16 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 		games = nil
 	}
 
-	c.HTML(http.StatusOK, "library/game_grid", gin.H{
-		"games": games,
-	})
+	data := gin.H{
+		"hasGames": len(games) > 0,
+	}
+	if c.Query("group_by") == "platform" {
+		data["groups"] = toLibraryGroups(games)
+	} else {
+		data["games"] = toLibraryCards(games, true)
+	}
+
+	c.HTML(http.StatusOK, "library/game_grid", data)
 }
 
 func (h *LibraryHandler) Search(c *gin.Context) {

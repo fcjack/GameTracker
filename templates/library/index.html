@@ -100,10 +100,14 @@
         </div>
 
         <div>
-            <h2 class="text-xl font-bold mb-4">My Library</h2>
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+                <h2 class="text-xl font-bold">My Library</h2>
+                {{template "library/group_by_control" .}}
+            </div>
             <div id="library-section"
                  hx-get="/library/games"
                  hx-trigger="load, libraryUpdated from:body"
+                 hx-include="[name='group_by']:checked"
                  hx-swap="innerHTML"
                  class="min-h-[200px]">
                 Loading library...
