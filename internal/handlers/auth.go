@@ -126,6 +126,11 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 		}
 	}
 
+	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
+	if err != nil {
+		games = nil
+	}
+
 	c.HTML(http.StatusOK, "dashboard/index", gin.H{
 		"username": username,
 		"stats": map[string]int{
@@ -134,5 +139,6 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 			"Backlog":   stats["owned"],
 			"Dropped":   stats["dropped"],
 		},
+		"groups": models.GroupUserGamesByPlatform(games),
 	})
 }

@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -46,6 +47,36 @@ type UserGameWithGame struct {
 	Status       string
 	Tags         []string
 	AddedAt      time.Time
+}
+
+type GamesByPlatform struct {
+	Platform string
+	Games    []*UserGameWithGame
+}
+
+func GroupUserGamesByPlatform(games []*UserGameWithGame) []GamesByPlatform {
+	platformMap := make(map[string][]*UserGameWithGame)
+	for _, g := range games {
+		if len(g.Platforms) == 0 {
+			platformMap["Unknown"] = append(platformMap["Unknown"], g)
+			continue
+		}
+		for _, p := range g.Platforms {
+			platformMap[p] = append(platformMap[p], g)
+		}
+	}
+
+	platforms := make([]string, 0, len(platformMap))
+	for p := range platformMap {
+		platforms = append(platforms, p)
+	}
+	sort.Strings(platforms)
+
+	groups := make([]GamesByPlatform, len(platforms))
+	for i, p := range platforms {
+		groups[i] = GamesByPlatform{Platform: p, Games: platformMap[p]}
+	}
+	return groups
 }
 
 func FindOrCreateGame(

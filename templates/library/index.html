@@ -103,8 +103,8 @@
             <h2 class="text-xl font-bold mb-4">My Library</h2>
             <div id="library-section"
                  hx-get="/library/games"
-                 hx-trigger="load"
-                 hx-swap="outerHTML"
+                 hx-trigger="load, libraryUpdated from:body"
+                 hx-swap="innerHTML"
                  class="min-h-[200px]">
                 Loading library...
             </div>
@@ -112,7 +112,7 @@
     </main>
 
     <script>
-        function clearSearchAndRefresh() {
+        function clearSearch() {
             const searchInput = document.querySelector('input[name="q"]');
             if (searchInput) {
                 searchInput.value = '';
@@ -121,10 +121,10 @@
             if (searchResults) {
                 searchResults.innerHTML = '';
             }
-            const librarySection = document.getElementById('library-section');
-            if (librarySection) {
-                htmx.ajax('GET', '/library/games', {target: librarySection, swap: 'outerHTML'});
-            }
+        }
+
+        function refreshLibrary() {
+            htmx.trigger(document.body, 'libraryUpdated');
         }
     </script>
 </body>

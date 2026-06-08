@@ -160,7 +160,7 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 		return
 	}
 
-	// Return the replacement button fragment
+	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
 	c.HTML(http.StatusOK, "library/in_library_button", gin.H{
 		"gameID": game.ID,
 	})
