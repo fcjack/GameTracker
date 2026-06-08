@@ -9,6 +9,7 @@ services:
       - XBOX_CLIENT_ID=${XBOX_CLIENT_ID}
       - XBOX_CLIENT_SECRET=${XBOX_CLIENT_SECRET}
       - SESSION_SECRET=${SESSION_SECRET}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY}
     depends_on:
       db:
         condition: service_healthy
