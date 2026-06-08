@@ -1,4 +1,4 @@
-const CACHE_NAME = 'game-tracker-v1';
+const CACHE_NAME = 'helios-gaming-tracker-v1';
 
 self.addEventListener('install', () => self.skipWaiting());
 

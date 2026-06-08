@@ -1,6 +1,6 @@
 {
-    "name": "Game Tracker",
-    "short_name": "GameTracker",
+    "name": "Helios Gaming tracker",
+    "short_name": "Helios",
     "description": "Track your gaming progress across platforms",
     "start_url": "/",
     "display": "standalone",
