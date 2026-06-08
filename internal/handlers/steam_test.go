@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -312,12 +314,12 @@ func testDB(t *testing.T) *pgxpool.Pool {
 		dbURL = os.Getenv("DATABASE_URL")
 	}
 	if dbURL == "" {
-		t.Skip("TEST_DATABASE_URL or DATABASE_URL not set, skipping database integration test")
+		dbURL = "postgres://gametracker:gametracker@localhost:5432/gametracker?sslmode=disable"
 	}
 
 	db, err := database.Connect(dbURL)
 	if err != nil {
-		t.Fatalf("database.Connect() error = %v", err)
+		t.Skipf("database not available: %v", err)
 	}
 	if err := database.RunMigrations(db); err != nil {
 		t.Fatalf("RunMigrations() error = %v", err)
@@ -348,5 +350,5 @@ func chdirToModuleRoot(t *testing.T) {
 
 func uniqueUsername(t *testing.T) string {
 	t.Helper()
-	return "testuser_" + strings.ReplaceAll(t.Name(), "/", "_")
+	return fmt.Sprintf("testuser_%d", time.Now().UnixNano())
 }

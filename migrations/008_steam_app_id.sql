@@ -1,0 +1,2 @@
+ALTER TABLE games
+    ADD COLUMN IF NOT EXISTS steam_app_id BIGINT UNIQUE;

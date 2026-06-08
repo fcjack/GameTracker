@@ -21,10 +21,14 @@ type Service struct {
 }
 
 func NewService(db *pgxpool.Pool, igdbClient *igdb.Client) *Service {
+	return NewServiceWithSteam(db, igdbClient, steam.NewClient(os.Getenv("STEAM_API_KEY")))
+}
+
+func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient *steam.Client) *Service {
 	return &Service{
 		db:    db,
 		igdb:  igdbClient,
-		steam: steam.NewClient(os.Getenv("STEAM_API_KEY")),
+		steam: steamClient,
 	}
 }
 
@@ -66,11 +70,6 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		_ = models.FailImportJob(ctx, s.db, jobID, msg)
 	}
 
-	if os.Getenv("TWITCH_CLIENT_ID") == "" || os.Getenv("TWITCH_CLIENT_SECRET") == "" {
-		fail("IGDB credentials are not configured")
-		return
-	}
-
 	games, err := s.steam.GetOwnedGames(steamID)
 	if err != nil {
 		fail(err.Error())
@@ -82,27 +81,45 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		return
 	}
 
+	hasIGDB := os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
+
+	alreadyImported, err := models.ListImportedSteamAppIDs(ctx, s.db, userID, steamPlatform)
+	if err != nil {
+		fail("Failed to load existing library")
+		return
+	}
+
 	var processed, imported, skipped int
 
 	for _, g := range games {
 		processed++
 
-		igdbID, err := s.lookupWithRetry(g.AppID, g.Name)
-		if err != nil {
-			fail("IGDB lookup failed: " + err.Error())
-			return
-		}
-		if igdbID == 0 {
+		if _, exists := alreadyImported[g.AppID]; exists {
 			skipped++
-		} else {
-			added, err := s.importGameWithRetry(ctx, userID, igdbID)
-			if err != nil {
-				fail("Failed to import game: " + err.Error())
+			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
+				log.Printf("steam import job %d: progress update failed: %v", jobID, err)
+			}
+			continue
+		}
+
+		var igdbID int64
+		if hasIGDB {
+			var lookupErr error
+			igdbID, lookupErr = s.lookupWithRetry(g.AppID, g.Name)
+			if lookupErr != nil {
+				fail("IGDB lookup failed: " + lookupErr.Error())
 				return
 			}
-			if added {
-				imported++
-			}
+		}
+
+		added, err := s.importSteamGame(ctx, userID, g, igdbID)
+		if err != nil {
+			fail("Failed to import game: " + err.Error())
+			return
+		}
+		if added {
+			imported++
+			alreadyImported[g.AppID] = struct{}{}
 		}
 
 		if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
@@ -133,33 +150,51 @@ func (s *Service) lookupWithRetry(appID int, steamName string) (int64, error) {
 	return 0, lastErr
 }
 
-func (s *Service) importGameWithRetry(ctx context.Context, userID, igdbID int64) (bool, error) {
+func (s *Service) importSteamGame(ctx context.Context, userID int64, g steam.OwnedGame, igdbID int64) (bool, error) {
+	if igdbID != 0 {
+		added, handled, err := s.importIGDBGameWithRetry(ctx, userID, g, igdbID)
+		if err != nil {
+			return false, err
+		}
+		if handled {
+			return added, nil
+		}
+	}
+	return s.importSteamOnlyGame(ctx, userID, g)
+}
+
+func (s *Service) importIGDBGameWithRetry(ctx context.Context, userID int64, g steam.OwnedGame, igdbID int64) (added, handled bool, err error) {
 	const maxAttempts = 3
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		added, err := s.importGame(ctx, userID, igdbID)
+		added, handled, err = s.importIGDBGame(ctx, userID, g, igdbID)
 		if err == nil {
-			return added, nil
+			return added, handled, nil
 		}
 		lastErr = err
 		if !strings.Contains(err.Error(), "rate limited") {
-			return false, err
+			return false, false, err
 		}
 	}
 
-	return false, lastErr
+	return false, false, lastErr
 }
 
-func (s *Service) importGame(ctx context.Context, userID, igdbID int64) (bool, error) {
+func (s *Service) importIGDBGame(ctx context.Context, userID int64, g steam.OwnedGame, igdbID int64) (bool, bool, error) {
 	gameData, err := s.igdb.GetGameByID(igdbID)
 	if err != nil {
-		return false, err
+		return false, false, err
 	}
 	if gameData == nil {
-		return false, nil
+		return false, false, nil
 	}
 
+	added, err := s.persistIGDBGame(ctx, userID, g.AppID, igdbID, gameData)
+	return added, true, err
+}
+
+func (s *Service) persistIGDBGame(ctx context.Context, userID int64, steamAppID int, igdbID int64, gameData *igdb.SearchResult) (bool, error) {
 	cat, err := models.GetCategoryByIGDBValue(ctx, s.db, gameData.Category)
 	if err != nil {
 		cat, err = models.GetCategoryByIGDBValue(ctx, s.db, 0)
@@ -178,9 +213,9 @@ func (s *Service) importGame(ctx context.Context, userID, igdbID int64) (bool, e
 		platforms[i] = p.Name
 	}
 
-	game, err := models.FindOrCreateGame(
-		ctx, s.db,
-		igdbID, gameData.Name, coverURL,
+	game, err := models.ResolveGameForSteamImport(
+		ctx, s.db, steamAppID, igdbID,
+		gameData.Name, coverURL,
 		igdb.ReleaseYear(gameData.FirstReleaseDate),
 		platforms, cat.ID,
 	)
@@ -188,7 +223,26 @@ func (s *Service) importGame(ctx context.Context, userID, igdbID int64) (bool, e
 		return false, err
 	}
 
-	inLibrary, err := models.IsInLibrary(ctx, s.db, userID, game.ID)
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
+}
+
+func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam.OwnedGame) (bool, error) {
+	cat, err := models.GetCategoryByIGDBValue(ctx, s.db, 0)
+	if err != nil {
+		return false, err
+	}
+
+	coverURL := steam.CoverImageURL(g.AppID, g.ImgIconURL)
+	game, err := models.FindOrCreateGameBySteamAppID(ctx, s.db, g.AppID, g.Name, coverURL, cat.ID)
+	if err != nil {
+		return false, err
+	}
+
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
+}
+
+func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64) (bool, error) {
+	inLibrary, err := models.IsInLibrary(ctx, s.db, userID, gameID)
 	if err != nil {
 		return false, err
 	}
@@ -196,7 +250,7 @@ func (s *Service) importGame(ctx context.Context, userID, igdbID int64) (bool, e
 		return false, nil
 	}
 
-	if err := models.AddToLibrary(ctx, s.db, userID, game.ID, steamPlatform); err != nil {
+	if err := models.AddToLibrary(ctx, s.db, userID, gameID, steamPlatform); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -1,15 +1,15 @@
 package handlers
 
 import (
+	"fmt"
 	"html/template"
 	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jacksoncoelho/game-tracker/internal/database"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
@@ -26,25 +26,39 @@ func loadAllTemplates(dir string) *template.Template {
 }
 
 func TestLibraryGridRendersAllGames(t *testing.T) {
-	dbURL := os.Getenv("DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://gametracker:gametracker@localhost:5432/gametracker?sslmode=disable"
-	}
-	db, err := database.Connect(dbURL)
-	if err != nil {
-		t.Skip("database not available:", err)
-	}
+	db := testDB(t)
 	defer db.Close()
 
-	games, err := models.ListUserGames(t.Context(), db, 1)
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, fmt.Sprintf("grid_%d", time.Now().UnixNano()), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+
+	for i, name := range []string{"Alpha Game", "Beta Game", "Gamma Game"} {
+		game, err := models.FindOrCreateGame(ctx, db, int64(90000+i), name, "", 2020, []string{"PC"}, cat.ID)
+		if err != nil {
+			t.Fatalf("FindOrCreateGame() error = %v", err)
+		}
+		if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+			t.Fatalf("AddToLibrary() error = %v", err)
+		}
+	}
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(games) != 3 {
-		t.Fatalf("setup: want 3 games from db, got %d", len(games))
+		t.Fatalf("setup: want 3 games, got %d", len(games))
 	}
 
-	tmpl := loadAllTemplates(filepath.Join("..", "..", "templates"))
+	tmpl := loadAllTemplates(filepath.Join("templates"))
 	data := gin.H{
 		"hasGames": true,
 		"games":    toLibraryCards(games, true),

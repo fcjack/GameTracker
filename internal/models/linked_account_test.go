@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -107,12 +108,12 @@ func testDB(t *testing.T) *pgxpool.Pool {
 		dbURL = os.Getenv("DATABASE_URL")
 	}
 	if dbURL == "" {
-		t.Skip("TEST_DATABASE_URL or DATABASE_URL not set, skipping database integration test")
+		dbURL = "postgres://gametracker:gametracker@localhost:5432/gametracker?sslmode=disable"
 	}
 
 	db, err := database.Connect(dbURL)
 	if err != nil {
-		t.Fatalf("database.Connect() error = %v", err)
+		t.Skipf("database not available: %v", err)
 	}
 	if err := database.RunMigrations(db); err != nil {
 		t.Fatalf("RunMigrations() error = %v", err)
@@ -143,9 +144,5 @@ func chdirToModuleRoot(t *testing.T) {
 
 func uniqueUsername(t *testing.T) string {
 	t.Helper()
-	name := "testuser_" + t.Name()
-	if len(name) > 50 {
-		name = name[:50]
-	}
-	return name
+	return fmt.Sprintf("testuser_%d", time.Now().UnixNano())
 }

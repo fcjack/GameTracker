@@ -64,6 +64,14 @@ func NewClient(clientID, clientSecret, baseURL string) *Client {
 	}
 }
 
+func (c *Client) SetTokenURL(url string) {
+	c.tokenURL = url
+}
+
+func (c *Client) SetHTTPClient(client *http.Client) {
+	c.httpClient = client
+}
+
 func (c *Client) ensureToken() error {
 	c.mu.RLock()
 	valid := c.accessToken != "" && time.Now().Before(c.tokenExpiry)

@@ -17,17 +17,38 @@ type Client struct {
 }
 
 type OwnedGame struct {
-	AppID int    `json:"appid"`
-	Name  string `json:"name"`
+	AppID      int    `json:"appid"`
+	Name       string `json:"name"`
+	ImgIconURL string `json:"img_icon_url"`
+}
+
+// CoverImageURL returns a Steam CDN image suitable for library cards.
+// Uses the library capsule when available, otherwise the app icon from the API.
+func CoverImageURL(appID int, iconHash string) string {
+	if iconHash != "" {
+		return fmt.Sprintf(
+			"https://shared.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%d/%s.jpg",
+			appID, iconHash,
+		)
+	}
+	return fmt.Sprintf(
+		"https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/%d/library_600x900.jpg",
+		appID,
+	)
 }
 
 func NewClient(apiKey string) *Client {
+	return NewClientWithHTTP(apiKey, steamAPIBase, nil)
+}
+
+func NewClientWithHTTP(apiKey, baseURL string, httpClient *http.Client) *Client {
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
 	return &Client{
-		apiKey:  apiKey,
-		baseURL: steamAPIBase,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		apiKey:     apiKey,
+		baseURL:    baseURL,
+		httpClient: httpClient,
 	}
 }
 

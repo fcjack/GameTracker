@@ -171,7 +171,7 @@ func (j *ImportJob) Summary() string {
 		}
 		msg += " from Steam"
 		if j.SkippedCount > 0 {
-			msg += fmt.Sprintf(" (%d not matched in IGDB)", j.SkippedCount)
+			msg += fmt.Sprintf(" (%d already imported)", j.SkippedCount)
 		}
 		return msg
 	case "failed":

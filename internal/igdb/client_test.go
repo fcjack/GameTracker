@@ -245,6 +245,37 @@ func TestLookupIGDBIDBySteamAppID(t *testing.T) {
 	}
 }
 
+func TestLookupIGDBIDBySteamAppIDFallback(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			json.NewEncoder(w).Encode([]SearchResult{})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{
+				{Game: 999, Category: 3},
+				{Game: 2963, Category: 0},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.SetHTTPClient(server.Client())
+
+	igdbID, err := client.LookupIGDBIDBySteamAppID(570, "Dota 2")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDBySteamAppID() error = %v", err)
+	}
+	if igdbID != 2963 {
+		t.Errorf("igdb id = %d, want 2963", igdbID)
+	}
+}
+
 func TestGetGameByID(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {

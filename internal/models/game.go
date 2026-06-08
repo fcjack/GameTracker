@@ -6,6 +6,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -18,6 +19,7 @@ type Category struct {
 type Game struct {
 	ID          int64
 	IGDBId      *int64
+	SteamAppID  *int
 	CategoryID  int64
 	Name        string
 	CoverURL    string
@@ -86,22 +88,214 @@ func FindOrCreateGame(
 	platforms []string,
 	categoryID int64,
 ) (*Game, error) {
+	return FindOrCreateGameWithSteamAppID(ctx, db, igdbID, nil, name, coverURL, releaseYear, platforms, categoryID)
+}
+
+func FindOrCreateGameWithSteamAppID(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	igdbID int64,
+	steamAppID *int,
+	name, coverURL string,
+	releaseYear int,
+	platforms []string,
+	categoryID int64,
+) (*Game, error) {
 	const query = `
-		INSERT INTO games (igdb_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
+		INSERT INTO games (igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
 		ON CONFLICT (igdb_id) DO UPDATE SET
+			steam_app_id = COALESCE(EXCLUDED.steam_app_id, games.steam_app_id),
 			name         = EXCLUDED.name,
 			cover_url    = EXCLUDED.cover_url,
 			platforms    = EXCLUDED.platforms,
 			release_year = EXCLUDED.release_year,
 			updated_at   = NOW()
-		RETURNING id, igdb_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		RETURNING id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err := db.QueryRow(ctx, query,
-		igdbID, categoryID, name, coverURL, platforms, releaseYear,
+		igdbID, steamAppID, categoryID, name, coverURL, platforms, releaseYear,
 	).Scan(
-		&g.ID, &g.IGDBId, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	return &g, err
+}
+
+func GetGameBySteamAppID(ctx context.Context, db *pgxpool.Pool, steamAppID int) (*Game, error) {
+	const query = `
+		SELECT id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		FROM games
+		WHERE steam_app_id = $1
+	`
+	var g Game
+	err := db.QueryRow(ctx, query, steamAppID).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
+func GetGameByIGDBID(ctx context.Context, db *pgxpool.Pool, igdbID int64) (*Game, error) {
+	const query = `
+		SELECT id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		FROM games
+		WHERE igdb_id = $1
+	`
+	var g Game
+	err := db.QueryRow(ctx, query, igdbID).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
+// MergeGameInto moves library entries from fromID to toID and deletes the duplicate game row.
+func MergeGameInto(ctx context.Context, db *pgxpool.Pool, fromID, toID int64) error {
+	tx, err := db.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const dedupe = `
+		DELETE FROM user_games ug_from
+		WHERE ug_from.game_id = $1
+		  AND EXISTS (
+			SELECT 1 FROM user_games ug_to
+			WHERE ug_to.game_id = $2 AND ug_to.user_id = ug_from.user_id
+		  )
+	`
+	if _, err := tx.Exec(ctx, dedupe, fromID, toID); err != nil {
+		return err
+	}
+
+	const move = `UPDATE user_games SET game_id = $2 WHERE game_id = $1`
+	if _, err := tx.Exec(ctx, move, fromID, toID); err != nil {
+		return err
+	}
+
+	const deleteGame = `DELETE FROM games WHERE id = $1`
+	if _, err := tx.Exec(ctx, deleteGame, fromID); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+// ResolveGameForSteamImport returns the canonical games row for a Steam title matched to IGDB,
+// merging duplicate steam-only and igdb-only rows when both exist.
+func ResolveGameForSteamImport(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	steamAppID int,
+	igdbID int64,
+	name, coverURL string,
+	releaseYear int,
+	platforms []string,
+	categoryID int64,
+) (*Game, error) {
+	igdbGame, err := GetGameByIGDBID(ctx, db, igdbID)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+
+	steamGame, err := GetGameBySteamAppID(ctx, db, steamAppID)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+
+	if igdbGame != nil && steamGame != nil && igdbGame.ID != steamGame.ID {
+		if err := MergeGameInto(ctx, db, steamGame.ID, igdbGame.ID); err != nil {
+			return nil, err
+		}
+		return FindOrCreateGameWithSteamAppID(
+			ctx, db, igdbID, &steamAppID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
+
+	if igdbGame != nil {
+		return FindOrCreateGameWithSteamAppID(
+			ctx, db, igdbID, &steamAppID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
+
+	if steamGame != nil {
+		if steamGame.IGDBId != nil {
+			return steamGame, nil
+		}
+		return LinkIGDBToSteamGame(
+			ctx, db, steamAppID, igdbID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
+
+	return FindOrCreateGameWithSteamAppID(
+		ctx, db, igdbID, &steamAppID,
+		name, coverURL, releaseYear, platforms, categoryID,
+	)
+}
+
+func FindOrCreateGameBySteamAppID(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	steamAppID int,
+	name, coverURL string,
+	categoryID int64,
+) (*Game, error) {
+	const query = `
+		INSERT INTO games (steam_app_id, igdb_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
+		VALUES ($1, NULL, $2, $3, $4, ARRAY['Steam'], 0, NOW(), NOW())
+		ON CONFLICT (steam_app_id) DO UPDATE SET
+			name      = EXCLUDED.name,
+			cover_url = CASE WHEN EXCLUDED.cover_url <> '' THEN EXCLUDED.cover_url ELSE games.cover_url END,
+			updated_at = NOW()
+		RETURNING id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+	`
+	var g Game
+	err := db.QueryRow(ctx, query, steamAppID, categoryID, name, coverURL).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	return &g, err
+}
+
+func LinkIGDBToSteamGame(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	steamAppID int,
+	igdbID int64,
+	name, coverURL string,
+	releaseYear int,
+	platforms []string,
+	categoryID int64,
+) (*Game, error) {
+	const query = `
+		UPDATE games
+		SET igdb_id = $2,
+		    category_id = $3,
+		    name = $4,
+		    cover_url = CASE WHEN $5 <> '' THEN $5 ELSE cover_url END,
+		    platforms = $6,
+		    release_year = $7,
+		    updated_at = NOW()
+		WHERE steam_app_id = $1
+		RETURNING id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+	`
+	var g Game
+	err := db.QueryRow(ctx, query,
+		steamAppID, igdbID, categoryID, name, coverURL, platforms, releaseYear,
+	).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	return &g, err
@@ -187,6 +381,31 @@ func IsInLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (b
 	var exists bool
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(&exists)
 	return exists, err
+}
+
+// ListImportedSteamAppIDs returns Steam app IDs already in the user's library on the given platform.
+func ListImportedSteamAppIDs(ctx context.Context, db *pgxpool.Pool, userID int64, platform string) (map[int]struct{}, error) {
+	const query = `
+		SELECT g.steam_app_id
+		FROM user_games ug
+		JOIN games g ON g.id = ug.game_id
+		WHERE ug.user_id = $1 AND ug.platform = $2 AND g.steam_app_id IS NOT NULL
+	`
+	rows, err := db.Query(ctx, query, userID, platform)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make(map[int]struct{})
+	for rows.Next() {
+		var appID int
+		if err := rows.Scan(&appID); err != nil {
+			return nil, err
+		}
+		ids[appID] = struct{}{}
+	}
+	return ids, rows.Err()
 }
 
 func GetGameStatistics(ctx context.Context, db *pgxpool.Pool, userID int64) (map[string]int, error) {
