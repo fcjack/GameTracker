@@ -17,11 +17,19 @@ import (
 )
 
 type SteamHandler struct {
-	db *pgxpool.Pool
+	db          *pgxpool.Pool
+	openIDURL   string
+	steamAPIURL string
+	httpClient  *http.Client
 }
 
 func NewSteamHandler(db *pgxpool.Pool) *SteamHandler {
-	return &SteamHandler{db: db}
+	return &SteamHandler{
+		db:          db,
+		openIDURL:   "https://steamcommunity.com/openid/login",
+		steamAPIURL: "https://api.steampowered.com",
+		httpClient:  http.DefaultClient,
+	}
 }
 
 func (h *SteamHandler) Initiate(c *gin.Context) {
@@ -57,7 +65,7 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 
 	params.Set("openid.mode", "check_authentication")
 
-	resp, err := http.PostForm("https://steamcommunity.com/openid/login", params)
+	resp, err := h.httpClient.PostForm(h.openIDURL, params)
 	if err != nil {
 		c.Redirect(http.StatusFound, "/profile?error=Steam+verification+failed")
 		return
@@ -90,7 +98,7 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 	personaName := steamIDStr
 	apiKey := os.Getenv("STEAM_API_KEY")
 	if apiKey != "" {
-		name, err := fetchSteamPersonaName(steamIDStr, apiKey)
+		name, err := h.fetchSteamPersonaName(steamIDStr, apiKey)
 		if err == nil && name != "" {
 			personaName = name
 		}
@@ -124,14 +132,15 @@ func extractSteamID(claimedID string) string {
 	return ""
 }
 
-func fetchSteamPersonaName(steamID, apiKey string) (string, error) {
-	url := fmt.Sprintf(
-		"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?key=%s&steamids=%s",
+func (h *SteamHandler) fetchSteamPersonaName(steamID, apiKey string) (string, error) {
+	apiURL := fmt.Sprintf(
+		"%s/ISteamUser/GetPlayerSummaries/v0002/?key=%s&steamids=%s",
+		h.steamAPIURL,
 		apiKey,
 		steamID,
 	)
 
-	resp, err := http.Get(url)
+	resp, err := h.httpClient.Get(apiURL)
 	if err != nil {
 		return "", err
 	}
