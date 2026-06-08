@@ -28,7 +28,7 @@ func CreateImportJob(ctx context.Context, db *pgxpool.Pool, userID int64, provid
 		INSERT INTO import_jobs (user_id, provider, status, created_at, updated_at)
 		VALUES ($1, $2, 'pending', NOW(), NOW())
 		RETURNING id, user_id, provider, status, total_count, processed_count,
-		          imported_count, skipped_count, error_message, created_at, updated_at, completed_at
+		          imported_count, skipped_count, COALESCE(error_message, ''), created_at, updated_at, completed_at
 	`
 	var job ImportJob
 	err := db.QueryRow(ctx, query, userID, provider).Scan(
@@ -42,7 +42,7 @@ func CreateImportJob(ctx context.Context, db *pgxpool.Pool, userID int64, provid
 func GetImportJob(ctx context.Context, db *pgxpool.Pool, jobID int64) (*ImportJob, error) {
 	const query = `
 		SELECT id, user_id, provider, status, total_count, processed_count,
-		       imported_count, skipped_count, error_message, created_at, updated_at, completed_at
+		       imported_count, skipped_count, COALESCE(error_message, ''), created_at, updated_at, completed_at
 		FROM import_jobs
 		WHERE id = $1
 	`
@@ -61,7 +61,7 @@ func GetImportJob(ctx context.Context, db *pgxpool.Pool, jobID int64) (*ImportJo
 func GetLatestImportJob(ctx context.Context, db *pgxpool.Pool, userID int64, provider string) (*ImportJob, error) {
 	const query = `
 		SELECT id, user_id, provider, status, total_count, processed_count,
-		       imported_count, skipped_count, error_message, created_at, updated_at, completed_at
+		       imported_count, skipped_count, COALESCE(error_message, ''), created_at, updated_at, completed_at
 		FROM import_jobs
 		WHERE user_id = $1 AND provider = $2
 		ORDER BY created_at DESC
@@ -145,6 +145,18 @@ func (j *ImportJob) ProgressPercent() int {
 
 func (j *ImportJob) IsActive() bool {
 	return j.Status == "pending" || j.Status == "running"
+}
+
+// NeedsRestart reports jobs that were interrupted before finishing.
+func (j *ImportJob) NeedsRestart() bool {
+	if !j.IsActive() {
+		return false
+	}
+	if j.TotalCount == 0 && j.ProcessedCount == 0 {
+		return true
+	}
+	// Active but no progress updates recently (e.g. server restarted mid-import).
+	return time.Since(j.UpdatedAt) > 2*time.Minute
 }
 
 func (j *ImportJob) Summary() string {

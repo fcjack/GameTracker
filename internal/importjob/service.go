@@ -29,12 +29,23 @@ func NewService(db *pgxpool.Pool, igdbClient *igdb.Client) *Service {
 }
 
 func (s *Service) StartSteamImport(ctx context.Context, userID int64, steamID string) (*models.ImportJob, error) {
+	ctx = context.Background()
+
 	active, err := models.HasActiveImportJob(ctx, s.db, userID, "steam")
 	if err != nil {
 		return nil, err
 	}
 	if active {
-		return models.GetLatestImportJob(ctx, s.db, userID, "steam")
+		job, err := models.GetLatestImportJob(ctx, s.db, userID, "steam")
+		if err != nil {
+			return nil, err
+		}
+		if !job.NeedsRestart() {
+			return job, nil
+		}
+		if err := models.FailImportJob(ctx, s.db, job.ID, "Import interrupted, restarting"); err != nil {
+			return nil, err
+		}
 	}
 
 	job, err := models.CreateImportJob(ctx, s.db, userID, "steam")
@@ -48,6 +59,7 @@ func (s *Service) StartSteamImport(ctx context.Context, userID int64, steamID st
 
 func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	ctx := context.Background()
+	log.Printf("steam import job %d: started for user %d", jobID, userID)
 
 	fail := func(msg string) {
 		log.Printf("steam import job %d failed: %s", jobID, msg)
@@ -75,7 +87,7 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	for _, g := range games {
 		processed++
 
-		igdbID, err := s.lookupWithRetry(g.AppID)
+		igdbID, err := s.lookupWithRetry(g.AppID, g.Name)
 		if err != nil {
 			fail("IGDB lookup failed: " + err.Error())
 			return
@@ -103,12 +115,12 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	}
 }
 
-func (s *Service) lookupWithRetry(appID int) (int64, error) {
+func (s *Service) lookupWithRetry(appID int, steamName string) (int64, error) {
 	const maxAttempts = 3
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
-		igdbID, err := s.igdb.LookupIGDBIDBySteamAppID(appID)
+		igdbID, err := s.igdb.LookupIGDBIDBySteamAppID(appID, steamName)
 		if err == nil {
 			return igdbID, nil
 		}

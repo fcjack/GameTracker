@@ -184,23 +184,47 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 }
 
 type externalGameResult struct {
-	Game int64 `json:"game"`
+	Game     int64 `json:"game"`
+	Category int   `json:"category"`
 }
 
-func (c *Client) LookupIGDBIDBySteamAppID(appID int) (int64, error) {
-	body := fmt.Sprintf(
-		`fields game; where uid = "%d" & category = %d; limit 1;`,
-		appID, externalGameCategorySteam,
-	)
+// LookupIGDBIDBySteamAppID resolves a Steam app ID to an IGDB game.
+// Steam name disambiguates when the same uid exists across multiple storefronts.
+func (c *Client) LookupIGDBIDBySteamAppID(appID int, steamName string) (int64, error) {
+	if steamName != "" {
+		body := fmt.Sprintf(
+			`fields name; where external_games.uid = "%d" & name = "%s"; limit 1;`,
+			appID,
+			strings.ReplaceAll(steamName, `"`, `\"`),
+		)
+		var results []SearchResult
+		if err := c.post("/games", body, &results); err != nil {
+			return 0, err
+		}
+		if len(results) > 0 {
+			return results[0].ID, nil
+		}
+	}
 
+	body := fmt.Sprintf(`fields game,category; where uid = "%d"; limit 10;`, appID)
 	var results []externalGameResult
 	if err := c.post("/external_games", body, &results); err != nil {
 		return 0, err
 	}
-	if len(results) == 0 || results[0].Game == 0 {
-		return 0, nil
+
+	var fallback int64
+	for _, r := range results {
+		if r.Game == 0 {
+			continue
+		}
+		switch r.Category {
+		case 0, externalGameCategorySteam:
+			if fallback == 0 {
+				fallback = r.Game
+			}
+		}
 	}
-	return results[0].Game, nil
+	return fallback, nil
 }
 
 func (c *Client) GetGameByID(id int64) (*SearchResult, error) {

@@ -218,12 +218,14 @@ func TestLookupIGDBIDBySteamAppID(t *testing.T) {
 		switch r.URL.Path {
 		case "/token":
 			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
-		case "/external_games":
+		case "/games":
 			body, _ := io.ReadAll(r.Body)
-			if !strings.Contains(string(body), `uid = "730"`) {
-				t.Errorf("external_games body = %q, expected steam app id 730", string(body))
+			if !strings.Contains(string(body), `external_games.uid = "730"`) {
+				t.Errorf("games body = %q, expected steam app id 730", string(body))
 			}
-			json.NewEncoder(w).Encode([]externalGameResult{{Game: 12345}})
+			json.NewEncoder(w).Encode([]SearchResult{{ID: 12345, Name: "Counter-Strike 2"}})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{{Game: 99999}})
 		default:
 			http.NotFound(w, r)
 		}
@@ -234,7 +236,7 @@ func TestLookupIGDBIDBySteamAppID(t *testing.T) {
 	client.tokenURL = server.URL + "/token"
 	client.httpClient = server.Client()
 
-	igdbID, err := client.LookupIGDBIDBySteamAppID(730)
+	igdbID, err := client.LookupIGDBIDBySteamAppID(730, "Counter-Strike 2")
 	if err != nil {
 		t.Fatalf("LookupIGDBIDBySteamAppID() error = %v", err)
 	}
