@@ -14,6 +14,7 @@ type Client struct {
 	clientID     string
 	clientSecret string
 	baseURL      string
+	tokenURL     string
 	httpClient   *http.Client
 
 	mu          sync.RWMutex
@@ -49,6 +50,7 @@ func NewClient(clientID, clientSecret, baseURL string) *Client {
 		clientID:     clientID,
 		clientSecret: clientSecret,
 		baseURL:      baseURL,
+		tokenURL:     "https://id.twitch.tv/oauth2/token",
 		httpClient:   &http.Client{Timeout: 10 * time.Second},
 	}
 }
@@ -68,7 +70,7 @@ func (c *Client) ensureToken() error {
 		return nil
 	}
 
-	resp, err := c.httpClient.PostForm("https://id.twitch.tv/oauth2/token", url.Values{
+	resp, err := c.httpClient.PostForm(c.tokenURL, url.Values{
 		"client_id":     {c.clientID},
 		"client_secret": {c.clientSecret},
 		"grant_type":    {"client_credentials"},
