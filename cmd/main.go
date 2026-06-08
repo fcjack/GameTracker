@@ -90,7 +90,7 @@ func main() {
 	)
 	library := handlers.NewLibraryHandler(db, igdbClient)
 
-	r.GET("/", auth.HomePage)
+	r.GET("/", auth.LoginPage)
 	r.GET("/login", auth.LoginPage)
 	r.POST("/login", auth.Login)
 	r.GET("/register", auth.RegisterPage)
