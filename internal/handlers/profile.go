@@ -79,7 +79,7 @@ func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+read+file")
 		return
 	}
-	defer src.Close()
+	defer func() { _ = src.Close() }()
 
 	data, err := io.ReadAll(src)
 	if err != nil {

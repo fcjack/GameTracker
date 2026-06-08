@@ -50,7 +50,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set("user_id", user.ID)
 	session.Set("username", user.Username)
-	session.Save()
+	if err := session.Save(); err != nil {
+		c.HTML(http.StatusInternalServerError, "auth/login", gin.H{
+			"error": "Failed to save session",
+		})
+		return
+	}
 
 	c.Redirect(http.StatusFound, "/dashboard")
 }
@@ -100,7 +105,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set("user_id", user.ID)
 	session.Set("username", user.Username)
-	session.Save()
+	if err := session.Save(); err != nil {
+		c.HTML(http.StatusInternalServerError, "auth/register", gin.H{
+			"error": "Failed to save session",
+		})
+		return
+	}
 
 	c.Redirect(http.StatusFound, "/dashboard")
 }
@@ -108,7 +118,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 func (h *AuthHandler) Logout(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Clear()
-	session.Save()
+	_ = session.Save()
 	c.Redirect(http.StatusFound, "/login")
 }
 

@@ -32,8 +32,15 @@ func RunMigrations(db *pgxpool.Pool) error {
 	applied := map[string]bool{}
 	for rows.Next() {
 		var name string
-		rows.Scan(&name)
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return fmt.Errorf("scan applied migration: %w", err)
+		}
 		applied[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return fmt.Errorf("iterate applied migrations: %w", err)
 	}
 	rows.Close()
 
@@ -69,13 +76,13 @@ func RunMigrations(db *pgxpool.Pool) error {
 		}
 
 		if _, err := tx.Exec(ctx, string(content)); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("apply %s: %w", name, err)
 		}
 
 		if _, err := tx.Exec(ctx,
 			"INSERT INTO schema_migrations (filename) VALUES ($1)", name); err != nil {
-			tx.Rollback(ctx)
+			_ = tx.Rollback(ctx)
 			return fmt.Errorf("record %s: %w", name, err)
 		}
 
@@ -114,13 +121,13 @@ func RollbackLastMigration(db *pgxpool.Pool) error {
 	}
 
 	if _, err := tx.Exec(ctx, string(content)); err != nil {
-		tx.Rollback(ctx)
+		_ = tx.Rollback(ctx)
 		return fmt.Errorf("execute down migration %s: %w", filename, err)
 	}
 
 	if _, err := tx.Exec(ctx,
 		"DELETE FROM schema_migrations WHERE filename = $1", filename); err != nil {
-		tx.Rollback(ctx)
+		_ = tx.Rollback(ctx)
 		return fmt.Errorf("remove migration record for %s: %w", filename, err)
 	}
 

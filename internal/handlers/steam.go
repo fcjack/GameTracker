@@ -70,7 +70,7 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/profile?error=Steam+verification+failed")
 		return
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -144,7 +144,7 @@ func (h *SteamHandler) fetchSteamPersonaName(steamID, apiKey string) (string, er
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Response struct {

@@ -78,7 +78,7 @@ func (c *Client) ensureToken() error {
 	if err != nil {
 		return fmt.Errorf("igdb: token request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("igdb: token request returned %d", resp.StatusCode)
@@ -123,7 +123,7 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 	if err != nil {
 		return nil, fmt.Errorf("igdb: search request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode == http.StatusUnauthorized {
 		// Token may have been revoked; clear it

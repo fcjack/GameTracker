@@ -127,12 +127,14 @@ func main() {
 
 func loadTemplates(dir string) *template.Template {
 	tmpl := template.New("")
-	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".html") {
 			return err
 		}
 		template.Must(tmpl.ParseFiles(path))
 		return nil
-	})
+	}); err != nil {
+		log.Fatalf("load templates: %v", err)
+	}
 	return tmpl
 }

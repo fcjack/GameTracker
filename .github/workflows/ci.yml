@@ -22,9 +22,9 @@ jobs:
         run: test -z "$(gofmt -s -l .)"
 
       - name: Run golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          version: v2.4.0
 
   build:
     name: Build
