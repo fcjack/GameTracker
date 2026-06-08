@@ -11,10 +11,10 @@ type LinkedAccount struct {
 	ID              int64
 	UserID          int64
 	Provider        string
-	ExternalID      string    // for Steam: SteamID64 (used with STEAM_API_KEY to fetch library)
-	DisplayName     string    // account persona name
-	AccessTokenEnc  string    // for OAuth2 providers; Steam OpenID leaves this empty
-	RefreshTokenEnc string    // for OAuth2 providers; Steam OpenID leaves this empty
+	ExternalID      string // for Steam: SteamID64 (used with STEAM_API_KEY to fetch library)
+	DisplayName     string // account persona name
+	AccessTokenEnc  string // for OAuth2 providers; Steam OpenID leaves this empty
+	RefreshTokenEnc string // for OAuth2 providers; Steam OpenID leaves this empty
 	TokenExpiresAt  *time.Time
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
