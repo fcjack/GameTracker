@@ -11,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/jacksoncoelho/game-tracker/internal/crypto"
 	"github.com/jacksoncoelho/game-tracker/internal/database"
 	"github.com/jacksoncoelho/game-tracker/internal/handlers"
 	"github.com/joho/godotenv"
@@ -56,6 +57,16 @@ func main() {
 	secret := os.Getenv("SESSION_SECRET")
 	if secret == "" {
 		log.Fatal("SESSION_SECRET is required")
+	}
+
+	encryptionKey := os.Getenv("ENCRYPTION_KEY")
+	if encryptionKey == "" {
+		log.Fatal("ENCRYPTION_KEY is required")
+	}
+
+	_, err = crypto.NewEncrypter(encryptionKey)
+	if err != nil {
+		log.Fatalf("Invalid ENCRYPTION_KEY: %v", err)
 	}
 
 	r := gin.Default()
