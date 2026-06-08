@@ -15,6 +15,9 @@ go run cmd/main.go
 # Run with Docker (recommended)
 docker compose up -d
 
+# Reset database (removes volumes, recreates from scratch)
+make reset
+
 # Tidy dependencies
 make tidy
 
@@ -30,6 +33,7 @@ go test ./internal/... -run TestName
 Copy `.env.example` to `.env`. Required variables:
 - `DATABASE_URL` — PostgreSQL connection string
 - `SESSION_SECRET` — random 32-char string for session signing
+- `ENCRYPTION_KEY` — 32-byte key hex-encoded (generate: `python3 -c "import os; print(os.urandom(32).hex())"`) for encrypting secrets before DB storage
 - `STEAM_API_KEY` — Steam Web API key
 - `XBOX_CLIENT_ID` / `XBOX_CLIENT_SECRET` — Xbox Live OAuth credentials
 - `APP_PORT` — defaults to 8080
@@ -49,7 +53,10 @@ Copy `.env.example` to `.env`. Required variables:
 
 - `internal/database/db.go` — `Connect()` returns a `*pgxpool.Pool`
 - `internal/database/migrate.go` — `RunMigrations()` applies pending `migrations/*.sql` files in sorted order, each in a transaction; tracks applied files in the `schema_migrations` table
+- `internal/crypto/crypto.go` — AES-256-GCM encryption/decryption with random nonces; `NewEncrypter(keyHex)` validates key length, `Encrypt(plaintext)` returns base64, `Decrypt(ciphertext)` reverses it
 - `internal/models/` — domain structs and DB query functions together (no separate repository layer); handlers pass `db *pgxpool.Pool` into model functions directly
+  - `user.go` — User struct, `CreateUser()`, `GetUserByUsername()`, `CheckPassword()`
+  - `linked_account.go` — LinkedAccount struct, `UpsertLinkedAccount()`, `GetLinkedAccount()`, `DeleteLinkedAccount()`, `ListLinkedAccounts()`
 - `internal/handlers/` — Gin handlers; `AuthHandler` holds `db`; `middleware.go` contains `AuthRequired()`
 
 **Templates** (`templates/`):
@@ -62,13 +69,22 @@ Copy `.env.example` to `.env`. Required variables:
 - Applied in alphabetical order; never re-applied once recorded in `schema_migrations`
 
 **Auth:**
-- Passwords hashed with bcrypt (`golang.org/x/crypto`)
+- Passwords hashed with bcrypt (`golang.org/x/crypto`); minimum 5 characters
 - Session stores `user_id` (int64) and `username` (string); `AuthRequired()` checks for a non-nil `user_id`
+- External accounts linked via `linked_accounts` table; supports multiple providers (Steam, Xbox) per user; tokens stored encrypted
 
-## External APIs (not yet implemented)
+## Database
 
-| API | Purpose |
-|-----|---------|
-| Steam Web API | Import game library |
-| Xbox Live API (OAuth2) | Import game library |
-| IGDB API | Game metadata (cover art, genres) |
+**Tables:**
+- `users` — user accounts with bcrypt-hashed passwords
+- `linked_accounts` — external provider identities (Steam, Xbox) with encrypted access/refresh tokens; UNIQUE(user_id, provider); supports upsert on re-auth
+- `schema_migrations` — applied migration tracking
+
+## External APIs
+
+| API | Purpose | Status |
+|-----|---------|--------|
+| Steam OpenID 2.0 | Link Steam account, get SteamID64 | Next: implement callback handler + UpsertLinkedAccount |
+| Steam Web API | Import game library via encrypted SteamID | Planned |
+| Xbox Live API (OAuth2) | Link Xbox account, get tokens | Planned |
+| IGDB API | Game metadata (cover art, genres) | Planned |
