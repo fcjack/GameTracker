@@ -1,0 +1,28 @@
+{{define "library/complete_form"}}
+<form hx-post="/library/games/{{.gameID}}/complete?show_platform={{if .showPlatform}}1{{else}}0{{end}}"
+      hx-target="#library-game-{{.gameID}}"
+      hx-swap="outerHTML"
+      class="mt-2 p-3 bg-gray-800 border border-gray-700 rounded-lg space-y-3">
+    <p class="text-xs text-gray-300">When did you finish <span class="font-medium text-white">{{.name}}</span>?</p>
+    <select name="completion_year"
+            required
+            class="w-full text-xs bg-gray-900 border border-gray-700 rounded px-2 py-1.5
+                   text-white focus:outline-none focus:border-indigo-500">
+        {{range .years}}
+        <option value="{{.}}">{{.}}</option>
+        {{end}}
+    </select>
+    <div class="flex gap-2">
+        <button type="submit"
+                class="flex-1 text-xs bg-green-700 hover:bg-green-600 text-white
+                       font-medium py-1.5 rounded transition-colors">
+            Confirm
+        </button>
+        <button type="button"
+                onclick="document.getElementById('complete-form-{{.gameID}}').innerHTML = ''"
+                class="px-3 text-xs text-gray-400 hover:text-white transition-colors">
+            Cancel
+        </button>
+    </div>
+</form>
+{{end}}

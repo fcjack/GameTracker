@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -19,32 +20,71 @@ type LibraryHandler struct {
 
 type libraryGameCard struct {
 	*models.UserGameWithGame
-	ShowPlatform bool
+	ShowPlatform        bool
+	NeedsCompletionYear bool
+	CurrentYear         int
 }
 
 type libraryGameGroup struct {
-	Platform string
-	Games    []libraryGameCard
+	Label string
+	Games []libraryGameCard
+}
+
+func toLibraryCard(g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
+	currentYear := time.Now().Year()
+	return libraryGameCard{
+		UserGameWithGame:    g,
+		ShowPlatform:        showPlatform,
+		CurrentYear:         currentYear,
+		NeedsCompletionYear: g.ReleaseYear > 0 && g.ReleaseYear < currentYear,
+	}
 }
 
 func toLibraryCards(games []*models.UserGameWithGame, showPlatform bool) []libraryGameCard {
 	cards := make([]libraryGameCard, len(games))
 	for i, g := range games {
-		cards[i] = libraryGameCard{UserGameWithGame: g, ShowPlatform: showPlatform}
+		cards[i] = toLibraryCard(g, showPlatform)
 	}
 	return cards
 }
 
-func toLibraryGroups(games []*models.UserGameWithGame) []libraryGameGroup {
+func toLibraryPlatformGroups(games []*models.UserGameWithGame) []libraryGameGroup {
 	grouped := models.GroupUserGamesByPlatform(games)
 	groups := make([]libraryGameGroup, len(grouped))
 	for i, g := range grouped {
 		groups[i] = libraryGameGroup{
-			Platform: g.Platform,
-			Games:    toLibraryCards(g.Games, false),
+			Label: g.Platform,
+			Games: toLibraryCards(g.Games, false),
 		}
 	}
 	return groups
+}
+
+func toLibraryYearGroups(games []*models.UserGameWithGame) []libraryGameGroup {
+	grouped := models.GroupUserGamesByCompletionYear(games)
+	groups := make([]libraryGameGroup, len(grouped))
+	for i, g := range grouped {
+		groups[i] = libraryGameGroup{
+			Label: g.Label,
+			Games: toLibraryCards(g.Games, true),
+		}
+	}
+	return groups
+}
+
+func completionYearOptions(releaseYear, currentYear int) []int {
+	start := releaseYear
+	if start <= 0 {
+		start = currentYear
+	}
+	if start > currentYear {
+		start = currentYear
+	}
+	years := make([]int, 0, currentYear-start+1)
+	for y := currentYear; y >= start; y-- {
+		years = append(years, y)
+	}
+	return years
 }
 
 func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandler {
@@ -78,7 +118,13 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
 
-	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
+	var games []*models.UserGameWithGame
+	var err error
+	if c.Query("filter") == "active" {
+		games, err = models.ListUserGamesByStatuses(c.Request.Context(), h.db, userID, []string{"playing", "completed"})
+	} else {
+		games, err = models.ListUserGames(c.Request.Context(), h.db, userID)
+	}
 	if err != nil {
 		games = nil
 	}
@@ -86,9 +132,16 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 	data := gin.H{
 		"hasGames": len(games) > 0,
 	}
-	if c.Query("group_by") == "platform" {
-		data["groups"] = toLibraryGroups(games)
-	} else {
+	if c.Query("filter") == "active" {
+		data["emptyTitle"] = "No active games"
+		data["emptyHint"] = "Games you're playing or have completed appear here. Backlog and dropped games are on the full library page."
+	}
+	switch c.Query("group_by") {
+	case "platform":
+		data["groups"] = toLibraryPlatformGroups(games)
+	case "year":
+		data["groups"] = toLibraryYearGroups(games)
+	default:
 		data["games"] = toLibraryCards(games, true)
 	}
 
@@ -247,6 +300,128 @@ func (h *LibraryHandler) RemoveGame(c *gin.Context) {
 
 	c.Header("HX-Trigger", "libraryUpdated")
 	c.Status(http.StatusOK)
+}
+
+func (h *LibraryHandler) CompleteGameForm(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	game, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if game.Status == "completed" {
+		c.Status(http.StatusOK)
+		return
+	}
+
+	currentYear := time.Now().Year()
+	c.HTML(http.StatusOK, "library/complete_form", gin.H{
+		"gameID":       gameID,
+		"name":         game.Name,
+		"releaseYear":  game.ReleaseYear,
+		"years":        completionYearOptions(game.ReleaseYear, currentYear),
+		"showPlatform": showPlatformFromQuery(c),
+	})
+}
+
+func (h *LibraryHandler) CompleteGame(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	game, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if game.Status == "completed" {
+		h.renderGameCard(c, game, showPlatformFromQuery(c))
+		return
+	}
+
+	currentYear := time.Now().Year()
+	needsYear := game.ReleaseYear > 0 && game.ReleaseYear < currentYear
+
+	var completedAt time.Time
+	if needsYear {
+		yearStr := c.PostForm("completion_year")
+		year, err := strconv.Atoi(yearStr)
+		if err != nil || year < game.ReleaseYear || year > currentYear {
+			c.AbortWithStatus(http.StatusBadRequest)
+			return
+		}
+		completedAt = time.Date(year, 12, 31, 12, 0, 0, 0, time.UTC)
+	} else {
+		completedAt = time.Now().UTC()
+	}
+
+	if err := models.MarkGameCompleted(c.Request.Context(), h.db, userID, gameID, completedAt); err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	updated, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
+	h.renderGameCard(c, updated, showPlatformFromQuery(c))
+}
+
+func showPlatformFromQuery(c *gin.Context) bool {
+	return c.Query("show_platform") != "0"
+}
+
+func (h *LibraryHandler) SetPlaying(c *gin.Context) {
+	h.setGameStatus(c, "playing")
+}
+
+func (h *LibraryHandler) SetDropped(c *gin.Context) {
+	h.setGameStatus(c, "dropped")
+}
+
+func (h *LibraryHandler) setGameStatus(c *gin.Context, status string) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	if err := models.UpdateGameStatus(c.Request.Context(), h.db, userID, gameID, status); err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	updated, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
+	h.renderGameCard(c, updated, showPlatformFromQuery(c))
+}
+
+func (h *LibraryHandler) renderGameCard(c *gin.Context, game *models.UserGameWithGame, showPlatform bool) {
+	c.HTML(http.StatusOK, "library/game_card", toLibraryCard(game, showPlatform))
 }
 
 func (h *LibraryHandler) UpdateStatus(c *gin.Context) {

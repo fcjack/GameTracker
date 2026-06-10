@@ -122,6 +122,10 @@ func main() {
 		protected.GET("/library/search", library.Search)
 		protected.POST("/library/games", library.AddGame)
 		protected.DELETE("/library/games/:game_id", library.RemoveGame)
+		protected.GET("/library/games/:game_id/complete-form", library.CompleteGameForm)
+		protected.POST("/library/games/:game_id/complete", library.CompleteGame)
+		protected.POST("/library/games/:game_id/playing", library.SetPlaying)
+		protected.POST("/library/games/:game_id/dropped", library.SetDropped)
 		protected.POST("/library/games/:game_id/status", library.UpdateStatus)
 	}
 

@@ -2,16 +2,16 @@
 {{if not .hasGames}}
 <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
     <p class="text-4xl mb-3">📭</p>
-    <p class="font-semibold text-gray-200">No games yet</p>
+    <p class="font-semibold text-gray-200">{{if .emptyTitle}}{{.emptyTitle}}{{else}}No games yet{{end}}</p>
     <p class="mt-1 text-sm text-gray-500">
-        Search for a game above and click "Add to Library".
+        {{if .emptyHint}}{{.emptyHint}}{{else}}Search for a game above and click "Add to Library".{{end}}
     </p>
 </div>
 {{else if .groups}}
 {{range .groups}}
 <section class="mb-10 last:mb-0">
     <h3 class="text-lg font-semibold mb-4 flex items-center gap-2">
-        {{.Platform}}
+        {{.Label}}
         <span class="text-sm font-normal text-gray-500">({{len .Games}})</span>
     </h3>
     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">

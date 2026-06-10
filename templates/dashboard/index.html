@@ -23,28 +23,7 @@
             {{end}}
         </div>
 
-        <div id="dashboard-stats"
-             hx-get="/dashboard/stats"
-             hx-trigger="libraryUpdated from:body"
-             hx-swap="outerHTML"
-             class="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-10">
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{index .stats "Playing"}}</p>
-                <p class="mt-1 text-sm text-gray-400">Playing</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{index .stats "Completed"}}</p>
-                <p class="mt-1 text-sm text-gray-400">Completed</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{index .stats "Backlog"}}</p>
-                <p class="mt-1 text-sm text-gray-400">Backlog</p>
-            </div>
-            <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
-                <p class="text-3xl font-bold">{{index .stats "Dropped"}}</p>
-                <p class="mt-1 text-sm text-gray-400">Dropped</p>
-            </div>
-        </div>
+        {{template "dashboard/stats" .}}
 
         <div class="mb-10">
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
@@ -71,11 +50,14 @@
 
         <div>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h2 class="text-xl font-bold">My Library</h2>
+                <div>
+                    <h2 class="text-xl font-bold">My Library</h2>
+                    <p class="text-sm text-gray-500 mt-0.5">Playing and completed games only</p>
+                </div>
                 {{template "library/group_by_control" .}}
             </div>
             <div id="library-section"
-                 hx-get="/library/games"
+                 hx-get="{{.libraryGridURL}}"
                  hx-trigger="load, libraryUpdated from:body"
                  hx-include="[name='group_by']:checked"
                  hx-swap="innerHTML"

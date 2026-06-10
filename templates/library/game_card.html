@@ -24,32 +24,100 @@
         <p class="text-xs text-gray-500 truncate" title="{{.Platform}}">{{.Platform}}</p>
         {{end}}
 
-        <div id="status-{{.GameID}}" class="mt-auto">
-            <select
-                name="status"
-                hx-post="/library/games/{{.GameID}}/status"
-                hx-target="#status-{{.GameID}}"
-                hx-swap="outerHTML"
-                hx-trigger="change"
-                class="w-full text-xs bg-gray-800 border border-gray-700
-                       rounded px-2 py-1 text-white focus:outline-none
-                       focus:border-indigo-500 cursor-pointer">
-                <option value="owned"     {{if eq .Status "owned"}}selected{{end}}>Owned</option>
-                <option value="playing"   {{if eq .Status "playing"}}selected{{end}}>Playing</option>
-                <option value="completed" {{if eq .Status "completed"}}selected{{end}}>Completed</option>
-                <option value="dropped"   {{if eq .Status "dropped"}}selected{{end}}>Dropped</option>
-            </select>
+        {{if eq .Status "playing"}}
+        <p class="text-xs text-indigo-400 flex items-center gap-1">
+            <i class="fas fa-play"></i> Playing
+        </p>
+        {{else if eq .Status "completed"}}
+        <p class="text-xs text-green-400 flex items-center gap-1">
+            <i class="fas fa-check-circle"></i>
+            Completed{{if .CompletedAt}} {{.CompletedAt.Year}}{{end}}
+        </p>
+        {{else if eq .Status "dropped"}}
+        <p class="text-xs text-amber-400 flex items-center gap-1">
+            <i class="fas fa-ban"></i>
+            Dropped{{if .DroppedAt}} {{.DroppedAt.Year}}{{end}}
+        </p>
+        {{end}}
+
+        {{$sp := "0"}}{{if .ShowPlatform}}{{$sp = "1"}}{{end}}
+        <div class="mt-auto grid grid-cols-2 gap-1.5 w-full">
+            <button type="button"
+                    hx-post="/library/games/{{.GameID}}/playing?show_platform={{$sp}}"
+                    hx-target="#library-game-{{.GameID}}"
+                    hx-swap="outerHTML"
+                    title="Mark as playing"
+                    class="flex items-center justify-center py-2 rounded-lg border transition-colors
+                           {{if eq .Status "playing"}}
+                           bg-indigo-950 border-indigo-600 text-indigo-400
+                           {{else}}
+                           bg-gray-800 border-gray-700 text-gray-400
+                           hover:text-indigo-400 hover:border-indigo-800
+                           {{end}}">
+                <i class="fas fa-play text-sm"></i>
+            </button>
+
+            {{if .NeedsCompletionYear}}
+            <button type="button"
+                    hx-get="/library/games/{{.GameID}}/complete-form?show_platform={{$sp}}"
+                    hx-target="#complete-form-{{.GameID}}"
+                    hx-swap="innerHTML"
+                    title="Mark complete"
+                    class="flex items-center justify-center py-2 rounded-lg border transition-colors
+                           {{if eq .Status "completed"}}
+                           bg-green-950 border-green-600 text-green-400
+                           {{else}}
+                           bg-gray-800 border-gray-700 text-gray-400
+                           hover:text-green-400 hover:border-green-800
+                           {{end}}">
+                <i class="fas fa-check text-sm"></i>
+            </button>
+            {{else}}
+            <button type="button"
+                    hx-post="/library/games/{{.GameID}}/complete?show_platform={{$sp}}"
+                    hx-target="#library-game-{{.GameID}}"
+                    hx-swap="outerHTML"
+                    title="Mark complete"
+                    class="flex items-center justify-center py-2 rounded-lg border transition-colors
+                           {{if eq .Status "completed"}}
+                           bg-green-950 border-green-600 text-green-400
+                           {{else}}
+                           bg-gray-800 border-gray-700 text-gray-400
+                           hover:text-green-400 hover:border-green-800
+                           {{end}}">
+                <i class="fas fa-check text-sm"></i>
+            </button>
+            {{end}}
+
+            <button type="button"
+                    hx-post="/library/games/{{.GameID}}/dropped?show_platform={{$sp}}"
+                    hx-target="#library-game-{{.GameID}}"
+                    hx-swap="outerHTML"
+                    title="Mark as dropped"
+                    class="flex items-center justify-center py-2 rounded-lg border transition-colors
+                           {{if eq .Status "dropped"}}
+                           bg-amber-950 border-amber-600 text-amber-400
+                           {{else}}
+                           bg-gray-800 border-gray-700 text-gray-400
+                           hover:text-amber-400 hover:border-amber-800
+                           {{end}}">
+                <i class="fas fa-ban text-sm"></i>
+            </button>
+
+            <button type="button"
+                    hx-delete="/library/games/{{.GameID}}"
+                    hx-target="#library-game-{{.GameID}}"
+                    hx-swap="outerHTML"
+                    hx-confirm="Remove {{.Name}} from your library?"
+                    title="Remove from library"
+                    class="flex items-center justify-center py-2 rounded-lg
+                           bg-gray-800 border border-gray-700 text-gray-400
+                           hover:text-red-400 hover:border-red-900 transition-colors">
+                <i class="fas fa-trash-alt text-sm"></i>
+            </button>
         </div>
 
-        <button
-            hx-delete="/library/games/{{.GameID}}"
-            hx-target="#library-game-{{.GameID}}"
-            hx-swap="outerHTML"
-            hx-confirm="Remove {{.Name}} from your library?"
-            class="w-full text-xs text-gray-500 hover:text-red-400
-                   transition-colors py-1">
-            <i class="fas fa-trash-alt mr-1"></i> Remove
-        </button>
+        <div id="complete-form-{{.GameID}}"></div>
     </div>
 </div>
 {{end}}

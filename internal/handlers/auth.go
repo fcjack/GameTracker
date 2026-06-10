@@ -3,6 +3,8 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strconv"
+	"time"
 
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
@@ -113,7 +115,34 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 	c.Redirect(http.StatusFound, "/")
 }
 
-func dashboardStatsMap(ctx context.Context, db *pgxpool.Pool, userID int64) map[string]int {
+func dashboardYear(c *gin.Context) int {
+	year := time.Now().Year()
+	if yearStr := c.Query("year"); yearStr != "" {
+		if y, err := strconv.Atoi(yearStr); err == nil && y >= 1970 && y <= 2100 {
+			year = y
+		}
+	}
+	return year
+}
+
+func dashboardYearOptions(ctx context.Context, db *pgxpool.Pool, userID int64) []int {
+	currentYear := time.Now().Year()
+	years, err := models.ListCompletionYears(ctx, db, userID)
+	if err != nil || len(years) == 0 {
+		return []int{currentYear}
+	}
+	seen := map[int]bool{currentYear: true}
+	options := []int{currentYear}
+	for _, y := range years {
+		if !seen[y] {
+			seen[y] = true
+			options = append(options, y)
+		}
+	}
+	return options
+}
+
+func dashboardStatsMap(ctx context.Context, db *pgxpool.Pool, userID int64, year int) map[string]int {
 	stats, err := models.GetGameStatistics(ctx, db, userID)
 	if err != nil {
 		stats = map[string]int{
@@ -123,11 +152,16 @@ func dashboardStatsMap(ctx context.Context, db *pgxpool.Pool, userID int64) map[
 			"dropped":   0,
 		}
 	}
+	completedInYear, err := models.GetCompletedCountByYear(ctx, db, userID, year)
+	if err != nil {
+		completedInYear = 0
+	}
 	return map[string]int{
-		"Playing":   stats["playing"],
-		"Completed": stats["completed"],
-		"Backlog":   stats["owned"],
-		"Dropped":   stats["dropped"],
+		"Playing":         stats["playing"],
+		"Completed":       stats["completed"],
+		"CompletedInYear": completedInYear,
+		"Backlog":         stats["owned"],
+		"Dropped":         stats["dropped"],
 	}
 }
 
@@ -136,14 +170,18 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 	userID := session.Get("user_id").(int64)
 	username := session.Get("username").(string)
 
-	stats := dashboardStatsMap(c.Request.Context(), h.db, userID)
+	year := dashboardYear(c)
+	stats := dashboardStatsMap(c.Request.Context(), h.db, userID, year)
 	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
 
 	c.HTML(http.StatusOK, "dashboard/index", gin.H{
-		"username":  username,
-		"activeNav": "dashboard",
-		"hasGames":  hasGames,
-		"stats":     stats,
+		"username":       username,
+		"activeNav":      "dashboard",
+		"hasGames":       hasGames,
+		"stats":          stats,
+		"year":           year,
+		"years":          dashboardYearOptions(c.Request.Context(), h.db, userID),
+		"libraryGridURL": "/library/games?filter=active",
 	})
 }
 
@@ -151,7 +189,11 @@ func (h *AuthHandler) DashboardStats(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
 
+	year := dashboardYear(c)
 	c.HTML(http.StatusOK, "dashboard/stats", gin.H{
-		"stats": dashboardStatsMap(c.Request.Context(), h.db, userID),
+		"stats": dashboardStatsMap(c.Request.Context(), h.db, userID, year),
+		"year":  year,
+		"years": dashboardYearOptions(c.Request.Context(), h.db, userID),
 	})
 }
+

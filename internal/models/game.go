@@ -30,12 +30,14 @@ type Game struct {
 }
 
 type UserGame struct {
-	UserID    int64
-	GameID    int64
-	Status    string
-	Tags      []string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	UserID      int64
+	GameID      int64
+	Status      string
+	Tags        []string
+	CompletedAt *time.Time
+	DroppedAt   *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type UserGameWithGame struct {
@@ -48,12 +50,19 @@ type UserGameWithGame struct {
 	CategoryName string
 	Status       string
 	Tags         []string
+	CompletedAt  *time.Time
+	DroppedAt    *time.Time
 	AddedAt      time.Time
 }
 
 type GamesByPlatform struct {
 	Platform string
 	Games    []*UserGameWithGame
+}
+
+type GamesByYear struct {
+	Label string
+	Games []*UserGameWithGame
 }
 
 func GroupUserGamesByPlatform(games []*UserGameWithGame) []GamesByPlatform {
@@ -75,6 +84,38 @@ func GroupUserGamesByPlatform(games []*UserGameWithGame) []GamesByPlatform {
 	groups := make([]GamesByPlatform, len(platforms))
 	for i, p := range platforms {
 		groups[i] = GamesByPlatform{Platform: p, Games: platformMap[p]}
+	}
+	return groups
+}
+
+func GroupUserGamesByCompletionYear(games []*UserGameWithGame) []GamesByYear {
+	var active []*UserGameWithGame
+	byYear := make(map[int][]*UserGameWithGame)
+
+	for _, g := range games {
+		if g.Status != "completed" || g.CompletedAt == nil {
+			active = append(active, g)
+			continue
+		}
+		year := g.CompletedAt.Year()
+		byYear[year] = append(byYear[year], g)
+	}
+
+	years := make([]int, 0, len(byYear))
+	for y := range byYear {
+		years = append(years, y)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(years)))
+
+	groups := make([]GamesByYear, 0, len(years)+1)
+	if len(active) > 0 {
+		groups = append(groups, GamesByYear{Label: "Active", Games: active})
+	}
+	for _, y := range years {
+		groups = append(groups, GamesByYear{
+			Label: fmt.Sprintf("%d", y),
+			Games: byYear[y],
+		})
 	}
 	return groups
 }
@@ -316,7 +357,7 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.created_at
+			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
@@ -335,7 +376,7 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 		err := rows.Scan(
 			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
 			&ug.ReleaseYear, &ug.CategoryName,
-			&ug.Status, &ug.Tags, &ug.AddedAt,
+			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -345,6 +386,63 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 	return list, rows.Err()
 }
 
+func ListUserGamesByStatuses(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string) ([]*UserGameWithGame, error) {
+	const query = `
+		SELECT
+			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
+			g.release_year, c.name AS category_name,
+			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+		FROM user_games ug
+		JOIN games g     ON g.id = ug.game_id
+		JOIN categories c ON c.id = g.category_id
+		WHERE ug.user_id = $1 AND ug.status = ANY($2)
+		ORDER BY ug.updated_at DESC
+	`
+	rows, err := db.Query(ctx, query, userID, statuses)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*UserGameWithGame
+	for rows.Next() {
+		var ug UserGameWithGame
+		err := rows.Scan(
+			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
+			&ug.ReleaseYear, &ug.CategoryName,
+			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, &ug)
+	}
+	return list, rows.Err()
+}
+
+func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*UserGameWithGame, error) {
+	const query = `
+		SELECT
+			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
+			g.release_year, c.name AS category_name,
+			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+		FROM user_games ug
+		JOIN games g     ON g.id = ug.game_id
+		JOIN categories c ON c.id = g.category_id
+		WHERE ug.user_id = $1 AND ug.game_id = $2
+	`
+	var ug UserGameWithGame
+	err := db.QueryRow(ctx, query, userID, gameID).Scan(
+		&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
+		&ug.ReleaseYear, &ug.CategoryName,
+		&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &ug, nil
+}
+
 func RemoveFromLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) error {
 	const query = `DELETE FROM user_games WHERE user_id = $1 AND game_id = $2`
 	_, err := db.Exec(ctx, query, userID, gameID)
@@ -352,11 +450,44 @@ func RemoveFromLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int
 }
 
 func UpdateGameStatus(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, status string) error {
+	var query string
+	switch status {
+	case "completed":
+		query = `
+			UPDATE user_games
+			SET status = $3, completed_at = COALESCE(completed_at, NOW()), dropped_at = NULL, updated_at = NOW()
+			WHERE user_id = $1 AND game_id = $2
+		`
+	case "dropped":
+		query = `
+			UPDATE user_games
+			SET status = $3, dropped_at = NOW(), completed_at = NULL, updated_at = NOW()
+			WHERE user_id = $1 AND game_id = $2
+		`
+	default:
+		query = `
+			UPDATE user_games
+			SET status = $3, completed_at = NULL, dropped_at = NULL, updated_at = NOW()
+			WHERE user_id = $1 AND game_id = $2
+		`
+	}
+	ct, err := db.Exec(ctx, query, userID, gameID, status)
+	if err != nil {
+		return err
+	}
+	if ct.RowsAffected() == 0 {
+		return fmt.Errorf("game not in library")
+	}
+	return nil
+}
+
+func MarkGameCompleted(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, completedAt time.Time) error {
 	const query = `
-		UPDATE user_games SET status = $3, updated_at = NOW()
+		UPDATE user_games
+		SET status = 'completed', completed_at = $3, dropped_at = NULL, updated_at = NOW()
 		WHERE user_id = $1 AND game_id = $2
 	`
-	ct, err := db.Exec(ctx, query, userID, gameID, status)
+	ct, err := db.Exec(ctx, query, userID, gameID, completedAt)
 	if err != nil {
 		return err
 	}
@@ -438,4 +569,44 @@ func GetGameStatistics(ctx context.Context, db *pgxpool.Pool, userID int64) (map
 		stats[status] = count
 	}
 	return stats, rows.Err()
+}
+
+func GetCompletedCountByYear(ctx context.Context, db *pgxpool.Pool, userID int64, year int) (int, error) {
+	const query = `
+		SELECT COUNT(*)
+		FROM user_games
+		WHERE user_id = $1
+		  AND status = 'completed'
+		  AND completed_at IS NOT NULL
+		  AND EXTRACT(YEAR FROM completed_at) = $2
+	`
+	var count int
+	err := db.QueryRow(ctx, query, userID, year).Scan(&count)
+	return count, err
+}
+
+func ListCompletionYears(ctx context.Context, db *pgxpool.Pool, userID int64) ([]int, error) {
+	const query = `
+		SELECT DISTINCT EXTRACT(YEAR FROM completed_at)::int AS year
+		FROM user_games
+		WHERE user_id = $1
+		  AND status = 'completed'
+		  AND completed_at IS NOT NULL
+		ORDER BY year DESC
+	`
+	rows, err := db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var years []int
+	for rows.Next() {
+		var year int
+		if err := rows.Scan(&year); err != nil {
+			return nil, err
+		}
+		years = append(years, year)
+	}
+	return years, rows.Err()
 }
