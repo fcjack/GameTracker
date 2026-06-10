@@ -1,7 +1,7 @@
 GOLANGCI_LINT_VERSION ?= v2.4.0
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix pre-commit
+.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix pre-commit install-hooks
 
 run:
 	go run cmd/main.go
@@ -56,3 +56,8 @@ lint-fix:
 	$(GOLANGCI_LINT) run --fix ./...
 
 pre-commit: fmt lint-fix
+
+install-hooks:
+	@chmod +x .githooks/pre-commit
+	@git config --local core.hooksPath .githooks
+	@echo "Installed git hooks from .githooks (core.hooksPath=.githooks)"

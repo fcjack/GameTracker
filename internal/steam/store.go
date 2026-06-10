@@ -12,10 +12,10 @@ import (
 )
 
 const (
-	storeAPIBase          = "https://store.steampowered.com"
-	defaultFilterWorkers  = 6
-	defaultRateBurst      = 6
-	defaultMinInterval    = 100 * time.Millisecond
+	storeAPIBase         = "https://store.steampowered.com"
+	defaultFilterWorkers = 6
+	defaultRateBurst     = 6
+	defaultMinInterval   = 100 * time.Millisecond
 )
 
 // StoreClient resolves Steam store metadata for owned apps.

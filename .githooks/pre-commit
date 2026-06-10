@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+echo "pre-commit: formatting and lint-fix..."
+make pre-commit
+
+for file in $(git diff --cached --name-only); do
+	if git diff --name-only -- "$file" | grep -qx "$file"; then
+		git add -- "$file"
+	fi
+done
+
+echo "pre-commit: verifying fmt and lint..."
+make fmt-check lint
