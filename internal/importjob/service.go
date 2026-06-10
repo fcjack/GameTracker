@@ -37,8 +37,8 @@ func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient 
 	}
 }
 
-func (s *Service) StartSteamImport(ctx context.Context, userID int64, steamID string) (*models.ImportJob, error) {
-	ctx = context.Background()
+func (s *Service) StartSteamImport(_ context.Context, userID int64, steamID string) (*models.ImportJob, error) {
+	ctx := context.Background()
 
 	active, err := models.HasActiveImportJob(ctx, s.db, userID, "steam")
 	if err != nil {

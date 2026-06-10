@@ -204,7 +204,7 @@ func MergeGameInto(ctx context.Context, db *pgxpool.Pool, fromID, toID int64) er
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const dedupe = `
 		DELETE FROM user_games ug_from
