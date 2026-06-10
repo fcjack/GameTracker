@@ -1,5 +1,10 @@
-# Production deployment — use with: docker compose -f docker-compose.deploy.yml up -d
+# Production deployment (homelab) — use with: docker compose -f docker-compose.deploy.yml up -d
 # Copy .env.deploy.example to .env and fill in secrets before starting.
+#
+# HTTPS and local DNS are handled by Traefik on the host. External access uses a
+# Cloudflare Tunnel (cloudflared). Configure the tunnel's public hostname in the
+# Cloudflare Zero Trust dashboard to point at your Traefik entrypoint or directly
+# at http://app:8080 on the game-tracker network.
 
 name: game-tracker-deploy
 
@@ -27,11 +32,13 @@ services:
       TWITCH_CLIENT_ID: ${TWITCH_CLIENT_ID:-}
       TWITCH_CLIENT_SECRET: ${TWITCH_CLIENT_SECRET:-}
       IGDB_BASE_URL: ${IGDB_BASE_URL:-https://api.igdb.com/v4}
+      SIGN_IN_ENABLED: ${SIGN_IN_ENABLED:-true}
     depends_on:
       db:
         condition: service_healthy
     networks:
       - game-tracker
+      - traefik
 
   db:
     image: postgres:16-alpine
@@ -51,29 +58,24 @@ services:
     networks:
       - game-tracker
 
-  caddy:
-    image: caddy:2-alpine
+  cloudflared:
+    image: cloudflare/cloudflared:latest
     restart: unless-stopped
-    ports:
-      - "${HTTP_PORT:-80}:80"
-      - "${HTTPS_PORT:-443}:443"
+    command: tunnel --no-autoupdate run
     environment:
-      APP_DOMAIN: ${APP_DOMAIN:-:80}
-      ACME_EMAIL: ${ACME_EMAIL:-}
-    volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
-      - caddy_config:/config
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
     depends_on:
       - app
     networks:
       - game-tracker
+      - traefik
 
 networks:
   game-tracker:
     driver: bridge
+  traefik:
+    external: true
+    name: ${TRAEFIK_NETWORK:-traefik}
 
 volumes:
   postgres_data:
-  caddy_data:
-  caddy_config:
