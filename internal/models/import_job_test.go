@@ -96,7 +96,7 @@ func TestImportJobSummary(t *testing.T) {
 		{
 			name: "completed with skips",
 			job:  ImportJob{Status: "completed", ImportedCount: 3, SkippedCount: 2},
-			want: "Imported 3 games from Steam (2 already imported)",
+			want: "Imported 3 games from Steam (2 skipped)",
 		},
 		{
 			name: "failed with message",

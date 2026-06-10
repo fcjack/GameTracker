@@ -12,9 +12,15 @@ import (
 
 const (
 	externalGameCategorySteam = 1
+	gameCategoryMainGame      = 0
 	// IGDB allows 4 requests/second; stay under with a 300ms minimum gap.
 	minRequestInterval = 300 * time.Millisecond
 )
+
+// IsMainGame reports whether an IGDB game category is a main game entry.
+func IsMainGame(category int) bool {
+	return category == gameCategoryMainGame
+}
 
 type Client struct {
 	clientID     string

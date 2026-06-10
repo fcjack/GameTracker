@@ -171,7 +171,7 @@ func (j *ImportJob) Summary() string {
 		}
 		msg += " from Steam"
 		if j.SkippedCount > 0 {
-			msg += fmt.Sprintf(" (%d already imported)", j.SkippedCount)
+			msg += fmt.Sprintf(" (%d skipped)", j.SkippedCount)
 		}
 		return msg
 	case "failed":

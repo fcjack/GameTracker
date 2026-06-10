@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -88,7 +89,8 @@ func TestStartSteamImportImportsGames(t *testing.T) {
 	igdbClient.SetHTTPClient(igdbServer.Client())
 
 	steamClient := steam.NewClientWithHTTP("steam-key", steamServer.URL, steamServer.Client())
-	svc := NewServiceWithSteam(db, igdbClient, steamClient)
+	storeClient := testStoreClient(t, map[int]string{570: "game", 99999: "game"})
+	svc := NewServiceWithSteam(db, igdbClient, steamClient, storeClient)
 
 	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
 	if err != nil {
@@ -194,7 +196,8 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
-	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()))
+	storeClient := testStoreClient(t, map[int]string{570: "game"})
+	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
 
 	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
 	if err != nil {
@@ -246,7 +249,7 @@ func TestStartSteamImportReturnsExistingActiveJob(t *testing.T) {
 		t.Fatalf("UpdateImportJobProgress() error = %v", err)
 	}
 
-	svc := NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"))
+	svc := NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), testStoreClient(t, nil))
 	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
 	if err != nil {
 		t.Fatalf("StartSteamImport() error = %v", err)
@@ -294,7 +297,7 @@ func TestStartSteamImportRestartsStalePendingJob(t *testing.T) {
 	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
-	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()))
+	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), testStoreClient(t, nil))
 
 	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
 	if err != nil {
@@ -342,6 +345,7 @@ func TestRunSteamImportWithoutIGDBCredentials(t *testing.T) {
 		db,
 		igdb.NewClient("", "", "http://localhost"),
 		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
+		testStoreClient(t, map[int]string{123: "game"}),
 	)
 	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
 	if err != nil {
@@ -360,6 +364,112 @@ func TestRunSteamImportWithoutIGDBCredentials(t *testing.T) {
 	if got.ImportedCount != 1 {
 		t.Errorf("imported_count = %d, want 1", got.ImportedCount)
 	}
+}
+
+func TestStartSteamImportSkipsNonGameTypes(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "")
+	t.Setenv("TWITCH_CLIENT_SECRET", "")
+
+	steamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"response": map[string]any{
+				"game_count": 3,
+				"games": []map[string]any{
+					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota"},
+					{"appid": 401920, "name": "Afterbirth", "img_icon_url": "dlc"},
+					{"appid": 3838, "name": "Soundtrack", "img_icon_url": "music"},
+				},
+			},
+		})
+	}))
+	defer steamServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	storeClient := testStoreClient(t, map[int]string{
+		570:    "game",
+		401920: "dlc",
+		3838:   "music",
+	})
+	svc := NewServiceWithSteam(
+		db,
+		igdb.NewClient("", "", "http://localhost"),
+		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
+		storeClient,
+	)
+
+	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
+	if err != nil {
+		t.Fatalf("StartSteamImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.Status != "completed" {
+		t.Fatalf("status = %q, want completed (error: %s)", got.Status, got.ErrorMessage)
+	}
+	if got.TotalCount != 3 {
+		t.Errorf("total_count = %d, want 3", got.TotalCount)
+	}
+	if got.ImportedCount != 1 {
+		t.Errorf("imported_count = %d, want 1", got.ImportedCount)
+	}
+	if got.SkippedCount != 2 {
+		t.Errorf("skipped_count = %d, want 2", got.SkippedCount)
+	}
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 || games[0].Name != "Dota 2" {
+		t.Fatalf("library = %+v, want only Dota 2", games)
+	}
+}
+
+func testStoreClient(t *testing.T, types map[int]string) *steam.StoreClient {
+	t.Helper()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		appIDStr := r.URL.Query().Get("appids")
+		appID, err := strconv.Atoi(appIDStr)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+
+		typ := "game"
+		if types != nil {
+			var ok bool
+			typ, ok = types[appID]
+			if !ok {
+				http.NotFound(w, r)
+				return
+			}
+		}
+
+		json.NewEncoder(w).Encode(map[string]any{
+			appIDStr: map[string]any{
+				"success": true,
+				"data":    map[string]any{"type": typ},
+			},
+		})
+	}))
+	t.Cleanup(server.Close)
+
+	client := steam.NewStoreClientWithHTTP(server.URL, server.Client())
+	client.SetMinInterval(0)
+	return client
 }
 
 func waitForImportJob(t *testing.T, db *pgxpool.Pool, jobID int64, timeout time.Duration) {

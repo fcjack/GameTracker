@@ -26,7 +26,7 @@ func TestStartSteamImportNotLinked(t *testing.T) {
 		t.Fatalf("CreateUser() error = %v", err)
 	}
 
-	svc := importjob.NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"))
+	svc := importjob.NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), nil)
 	h := NewImportHandler(db, svc)
 
 	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/steam/import", nil)
@@ -55,7 +55,7 @@ func TestStartSteamImportSuccess(t *testing.T) {
 		t.Fatalf("UpsertLinkedAccount() error = %v", err)
 	}
 
-	svc := importjob.NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"))
+	svc := importjob.NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), nil)
 	h := NewImportHandler(db, svc)
 
 	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/steam/import", nil)

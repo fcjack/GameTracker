@@ -18,17 +18,22 @@ type Service struct {
 	db    *pgxpool.Pool
 	igdb  *igdb.Client
 	steam *steam.Client
+	store *steam.StoreClient
 }
 
 func NewService(db *pgxpool.Pool, igdbClient *igdb.Client) *Service {
-	return NewServiceWithSteam(db, igdbClient, steam.NewClient(os.Getenv("STEAM_API_KEY")))
+	return NewServiceWithSteam(db, igdbClient, steam.NewClient(os.Getenv("STEAM_API_KEY")), nil)
 }
 
-func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient *steam.Client) *Service {
+func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient *steam.Client, storeClient *steam.StoreClient) *Service {
+	if storeClient == nil {
+		storeClient = steam.NewStoreClient()
+	}
 	return &Service{
 		db:    db,
 		igdb:  igdbClient,
 		steam: steamClient,
+		store: storeClient,
 	}
 }
 
@@ -70,14 +75,20 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		_ = models.FailImportJob(ctx, s.db, jobID, msg)
 	}
 
-	games, err := s.steam.GetOwnedGames(steamID)
+	owned, err := s.steam.GetOwnedGames(steamID)
 	if err != nil {
 		fail(err.Error())
 		return
 	}
 
-	if err := models.SetImportJobTotal(ctx, s.db, jobID, len(games)); err != nil {
+	if err := models.SetImportJobTotal(ctx, s.db, jobID, len(owned)); err != nil {
 		fail("Failed to update import progress")
+		return
+	}
+
+	games, err := s.store.FilterImportableGames(ctx, owned)
+	if err != nil {
+		fail("Failed to classify Steam apps: " + err.Error())
 		return
 	}
 
@@ -90,6 +101,13 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	}
 
 	var processed, imported, skipped int
+	processed = len(owned) - len(games)
+	skipped = processed
+	if processed > 0 {
+		if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
+			log.Printf("steam import job %d: progress update failed: %v", jobID, err)
+		}
+	}
 
 	for _, g := range games {
 		processed++
@@ -188,6 +206,9 @@ func (s *Service) importIGDBGame(ctx context.Context, userID int64, g steam.Owne
 	}
 	if gameData == nil {
 		return false, false, nil
+	}
+	if !igdb.IsMainGame(gameData.Category) {
+		return false, true, nil
 	}
 
 	added, err := s.persistIGDBGame(ctx, userID, g.AppID, igdbID, gameData)
