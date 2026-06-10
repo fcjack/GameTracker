@@ -143,6 +143,41 @@ func TestStoreClientFilterImportableGames(t *testing.T) {
 	}
 }
 
+func TestStoreClientRetriesOn429(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if requests.Add(1) == 1 {
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = w.Write([]byte("null"))
+			return
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"570": map[string]any{
+				"success": true,
+				"data":    map[string]any{"type": "game"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewStoreClientWithHTTP(server.URL, server.Client())
+	client.SetMinInterval(0)
+
+	typ, ok, err := client.GetAppType(context.Background(), 570)
+	if err != nil {
+		t.Fatalf("GetAppType() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("GetAppType() ok = false, want true")
+	}
+	if typ != "game" {
+		t.Errorf("type = %q, want game", typ)
+	}
+	if got := requests.Load(); got != 2 {
+		t.Errorf("store requests = %d, want 2 (retry after 429)", got)
+	}
+}
+
 func TestStoreClientFilterImportableGamesParallel(t *testing.T) {
 	const apps = 12
 	var peakConcurrent atomic.Int32

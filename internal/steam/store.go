@@ -13,9 +13,12 @@ import (
 
 const (
 	storeAPIBase         = "https://store.steampowered.com"
-	defaultFilterWorkers = 6
-	defaultRateBurst     = 6
-	defaultMinInterval   = 100 * time.Millisecond
+	defaultFilterWorkers = 2
+	defaultRateBurst     = 2
+	// Steam store appdetails is limited to ~200 requests per 5 minutes per IP.
+	defaultMinInterval = 1500 * time.Millisecond
+	maxStoreRetries    = 5
+	storeRetryBase     = 5 * time.Second
 )
 
 // StoreClient resolves Steam store metadata for owned apps.
@@ -112,29 +115,9 @@ func (c *StoreClient) getAppType(ctx context.Context, appID int) (string, bool, 
 		return entry.typ, entry.ok, nil
 	}
 
-	if err := c.acquireRate(ctx); err != nil {
-		return "", false, err
-	}
-
-	url := fmt.Sprintf("%s/api/appdetails?appids=%d&filters=basic", c.baseURL, appID)
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	body, err := c.fetchAppDetails(ctx, appID)
 	if err != nil {
 		return "", false, err
-	}
-	req.Header.Set("User-Agent", "HeliosGameTracker/1.0")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return "", false, fmt.Errorf("steam store: app %d request: %w", appID, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", false, fmt.Errorf("steam store: app %d read response: %w", appID, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", false, fmt.Errorf("steam store: app %d returned %d: %s", appID, resp.StatusCode, string(body))
 	}
 
 	var result map[string]struct {
@@ -155,6 +138,67 @@ func (c *StoreClient) getAppType(ctx context.Context, appID int) (string, bool, 
 
 	c.typeCache.Store(appID, cachedAppType{typ: entry.Data.Type, ok: true})
 	return entry.Data.Type, true, nil
+}
+
+func (c *StoreClient) fetchAppDetails(ctx context.Context, appID int) ([]byte, error) {
+	url := fmt.Sprintf("%s/api/appdetails?appids=%d&filters=basic", c.baseURL, appID)
+
+	var lastErr error
+	for attempt := 0; attempt <= maxStoreRetries; attempt++ {
+		if err := c.acquireRate(ctx); err != nil {
+			return nil, err
+		}
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("User-Agent", "HeliosGameTracker/1.0")
+
+		resp, err := c.httpClient.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("steam store: app %d request: %w", appID, err)
+		}
+
+		body, readErr := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if readErr != nil {
+			return nil, fmt.Errorf("steam store: app %d read response: %w", appID, readErr)
+		}
+
+		if resp.StatusCode == http.StatusOK {
+			return body, nil
+		}
+
+		lastErr = fmt.Errorf("steam store: app %d returned %d: %s", appID, resp.StatusCode, string(body))
+		if !isRetryableStoreStatus(resp.StatusCode) || attempt == maxStoreRetries {
+			return nil, lastErr
+		}
+
+		wait := storeRetryWait(resp, attempt)
+		select {
+		case <-time.After(wait):
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	return nil, lastErr
+}
+
+func isRetryableStoreStatus(code int) bool {
+	return code == http.StatusTooManyRequests ||
+		code == http.StatusServiceUnavailable ||
+		code == http.StatusBadGateway
+}
+
+func storeRetryWait(resp *http.Response, attempt int) time.Duration {
+	if retryAfter := resp.Header.Get("Retry-After"); retryAfter != "" {
+		if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+			return time.Duration(seconds) * time.Second
+		}
+	}
+	return storeRetryBase * time.Duration(1<<attempt)
 }
 
 // FilterImportableGames keeps only Steam store entries classified as games.
