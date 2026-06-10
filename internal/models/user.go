@@ -11,6 +11,7 @@ type User struct {
 	ID           int64
 	Username     string
 	PasswordHash string
+	Locale       string
 }
 
 func CreateUser(ctx context.Context, db *pgxpool.Pool, username, password string) (*User, error) {
@@ -22,18 +23,18 @@ func CreateUser(ctx context.Context, db *pgxpool.Pool, username, password string
 	var user User
 	err = db.QueryRow(ctx,
 		`INSERT INTO users (username, password_hash) VALUES ($1, $2)
-		 RETURNING id, username, password_hash`,
+		 RETURNING id, username, password_hash, locale`,
 		username, string(hash),
-	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Locale)
 	return &user, err
 }
 
 func GetUserByUsername(ctx context.Context, db *pgxpool.Pool, username string) (*User, error) {
 	var user User
 	err := db.QueryRow(ctx,
-		`SELECT id, username, password_hash FROM users WHERE username = $1`,
+		`SELECT id, username, password_hash, locale FROM users WHERE username = $1`,
 		username,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Locale)
 	if err != nil {
 		return nil, err
 	}
@@ -43,9 +44,9 @@ func GetUserByUsername(ctx context.Context, db *pgxpool.Pool, username string) (
 func GetUserByID(ctx context.Context, db *pgxpool.Pool, userID int64) (*User, error) {
 	var user User
 	err := db.QueryRow(ctx,
-		`SELECT id, username, password_hash FROM users WHERE id = $1`,
+		`SELECT id, username, password_hash, locale FROM users WHERE id = $1`,
 		userID,
-	).Scan(&user.ID, &user.Username, &user.PasswordHash)
+	).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.Locale)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +72,17 @@ func (u *User) CheckPassword(password string) bool {
 func UpdateAvatar(ctx context.Context, db *pgxpool.Pool, userID int64, data []byte, mime string) error {
 	const query = `UPDATE users SET avatar_data = $2, avatar_mime = $3 WHERE id = $1`
 	_, err := db.Exec(ctx, query, userID, data, mime)
+	return err
+}
+
+func GetUserLocale(ctx context.Context, db *pgxpool.Pool, userID int64) (string, error) {
+	var locale string
+	err := db.QueryRow(ctx, `SELECT locale FROM users WHERE id = $1`, userID).Scan(&locale)
+	return locale, err
+}
+
+func UpdateUserLocale(ctx context.Context, db *pgxpool.Pool, userID int64, locale string) error {
+	_, err := db.Exec(ctx, `UPDATE users SET locale = $2 WHERE id = $1`, userID, locale)
 	return err
 }
 

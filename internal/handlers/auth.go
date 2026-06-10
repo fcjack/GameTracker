@@ -9,10 +9,11 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
-const signInDisabledMessage = "Sign-in and registration are currently disabled."
+const signInDisabledMessage = "auth.sign_in_disabled"
 
 type AuthHandler struct {
 	db            *pgxpool.Pool
@@ -23,8 +24,8 @@ func NewAuthHandler(db *pgxpool.Pool, signInEnabled bool) *AuthHandler {
 	return &AuthHandler{db: db, signInEnabled: signInEnabled}
 }
 
-func (h *AuthHandler) loginTemplateData(extra gin.H) gin.H {
-	data := gin.H{"SignInEnabled": h.signInEnabled}
+func (h *AuthHandler) loginTemplateData(c *gin.Context, extra gin.H) gin.H {
+	data := ViewData(c, gin.H{"SignInEnabled": h.signInEnabled})
 	for k, v := range extra {
 		data[k] = v
 	}
@@ -36,12 +37,12 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	c.HTML(http.StatusOK, "auth/login", h.loginTemplateData(nil))
+	c.HTML(http.StatusOK, "auth/login", h.loginTemplateData(c, nil))
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
 	if !h.signInEnabled {
-		c.HTML(http.StatusForbidden, "auth/login", h.loginTemplateData(gin.H{
+		c.HTML(http.StatusForbidden, "auth/login", h.loginTemplateData(c, gin.H{
 			"error": signInDisabledMessage,
 		}))
 		return
@@ -52,8 +53,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	user, err := models.GetUserByUsername(c.Request.Context(), h.db, username)
 	if err != nil || !user.CheckPassword(password) {
-		c.HTML(http.StatusUnauthorized, "auth/login", h.loginTemplateData(gin.H{
-			"error": "Invalid username or password",
+		c.HTML(http.StatusUnauthorized, "auth/login", h.loginTemplateData(c, gin.H{
+			"error": "error.invalid_credentials",
 		}))
 		return
 	}
@@ -61,9 +62,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	session := sessions.Default(c)
 	session.Set("user_id", user.ID)
 	session.Set("username", user.Username)
+	locale := i18n.Normalize(user.Locale)
+	if locale == "" {
+		locale = i18n.LocaleEN
+	}
+	SetSessionLocale(session, locale)
 	if err := session.Save(); err != nil {
-		c.HTML(http.StatusInternalServerError, "auth/login", h.loginTemplateData(gin.H{
-			"error": "Failed to save session",
+		c.HTML(http.StatusInternalServerError, "auth/login", h.loginTemplateData(c, gin.H{
+			"error": "error.session_failed",
 		}))
 		return
 	}
@@ -80,15 +86,15 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/login")
 		return
 	}
-	c.HTML(http.StatusOK, "auth/register", gin.H{"SignInEnabled": true})
+	c.HTML(http.StatusOK, "auth/register", ViewData(c, gin.H{"SignInEnabled": true}))
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	if !h.signInEnabled {
-		c.HTML(http.StatusForbidden, "auth/register", gin.H{
+		c.HTML(http.StatusForbidden, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": false,
 			"error":         signInDisabledMessage,
-		})
+		}))
 		return
 	}
 
@@ -97,46 +103,51 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	confirm := c.PostForm("confirm_password")
 
 	if len(username) < 3 {
-		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
+		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
-			"error":         "Username must be at least 3 characters",
-		})
+			"error":         "error.username_too_short",
+		}))
 		return
 	}
 
 	if len(password) < 5 {
-		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
+		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
-			"error":         "Password must be at least 5 characters",
-		})
+			"error":         "error.password_too_short",
+		}))
 		return
 	}
 
 	if password != confirm {
-		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
+		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
-			"error":         "Passwords do not match",
-		})
+			"error":         "error.passwords_mismatch",
+		}))
 		return
 	}
 
 	user, err := models.CreateUser(c.Request.Context(), h.db, username, password)
 	if err != nil {
-		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
+		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
-			"error":         "Username already taken",
-		})
+			"error":         "error.username_taken",
+		}))
 		return
 	}
 
 	session := sessions.Default(c)
 	session.Set("user_id", user.ID)
 	session.Set("username", user.Username)
+	locale := LocaleFromContext(c)
+	SetSessionLocale(session, locale)
+	if err := models.UpdateUserLocale(c.Request.Context(), h.db, user.ID, locale); err != nil {
+		// non-fatal; session locale still applies
+	}
 	if err := session.Save(); err != nil {
-		c.HTML(http.StatusInternalServerError, "auth/register", gin.H{
+		c.HTML(http.StatusInternalServerError, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
-			"error":         "Failed to save session",
-		})
+			"error":         "error.session_failed",
+		}))
 		return
 	}
 
@@ -209,7 +220,7 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 	stats := dashboardStatsMap(c.Request.Context(), h.db, userID, year)
 	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
 
-	c.HTML(http.StatusOK, "dashboard/index", gin.H{
+	c.HTML(http.StatusOK, "dashboard/index", ViewData(c, gin.H{
 		"username":       username,
 		"activeNav":      "dashboard",
 		"hasGames":       hasGames,
@@ -217,7 +228,7 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 		"year":           year,
 		"years":          dashboardYearOptions(c.Request.Context(), h.db, userID),
 		"libraryGridURL": "/library/games?filter=active",
-	})
+	}))
 }
 
 func (h *AuthHandler) DashboardStats(c *gin.Context) {
@@ -225,9 +236,9 @@ func (h *AuthHandler) DashboardStats(c *gin.Context) {
 	userID := session.Get("user_id").(int64)
 
 	year := dashboardYear(c)
-	c.HTML(http.StatusOK, "dashboard/stats", gin.H{
+	c.HTML(http.StatusOK, "dashboard/stats", ViewData(c, gin.H{
 		"stats": dashboardStatsMap(c.Request.Context(), h.db, userID, year),
 		"year":  year,
 		"years": dashboardYearOptions(c.Request.Context(), h.db, userID),
-	})
+	}))
 }

@@ -33,6 +33,8 @@
 
 <script>
     const SIDEBAR_MODE_KEY = 'heliosSidebarMode';
+    const sidebarCollapseTitle = {{printf "%q" (call .T "nav.collapse_sidebar")}};
+    const sidebarExpandTitle = {{printf "%q" (call .T "nav.expand_sidebar")}};
 
     function isDesktop() {
         return window.matchMedia('(min-width: 768px)').matches;
@@ -47,11 +49,11 @@
         if (mode === 'collapsed' && isDesktop()) {
             sidebar.classList.add('sidebar-collapsed');
             if (icon) icon.className = 'fas fa-angles-right w-5 text-center shrink-0';
-            if (collapseBtn) collapseBtn.title = 'Expand sidebar';
+            if (collapseBtn) collapseBtn.title = sidebarExpandTitle;
         } else {
             sidebar.classList.remove('sidebar-collapsed');
             if (icon) icon.className = 'fas fa-angles-left w-5 text-center shrink-0';
-            if (collapseBtn) collapseBtn.title = 'Collapse sidebar';
+            if (collapseBtn) collapseBtn.title = sidebarCollapseTitle;
         }
     }
 

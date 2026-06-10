@@ -11,6 +11,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
@@ -26,12 +27,13 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
 	username := session.Get("username").(string)
+	locale := LocaleFromContext(c)
 
 	accounts, err := models.ListLinkedAccounts(c.Request.Context(), h.db, userID)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "profile/index", gin.H{
-			"error": "Failed to load linked accounts",
-		})
+		c.HTML(http.StatusInternalServerError, "profile/index", ViewData(c, gin.H{
+			"error": "error.load_accounts",
+		}))
 		return
 	}
 
@@ -59,17 +61,40 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
-	c.HTML(http.StatusOK, "profile/index", gin.H{
-		"username":        username,
-		"activeNav":       "profile",
-		"hasAvatar":       hasAvatar,
-		"gravatarURL":     gravatarURL,
-		"steamAccount":    steamAccount,
-		"steamImportJob":  steamImportJob,
-		"error":           c.Query("error"),
-		"passwordError":   c.Query("password_error"),
-		"passwordSuccess": c.Query("password_success") == "1",
-	})
+	c.HTML(http.StatusOK, "profile/index", ViewData(c, gin.H{
+		"username":           username,
+		"activeNav":          "profile",
+		"hasAvatar":          hasAvatar,
+		"gravatarURL":        gravatarURL,
+		"steamAccount":       steamAccount,
+		"steamImportJob":     steamImportJob,
+		"importJobSummary":   i18n.ImportJobSummary(steamImportJob, locale),
+		"locale":             locale,
+		"error":              c.Query("error"),
+		"passwordError":      c.Query("password_error"),
+		"passwordSuccess":    c.Query("password_success") == "1",
+		"localeSuccess":      c.Query("locale_success") == "1",
+	}))
+}
+
+func (h *ProfileHandler) ChangeLocale(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	locale := i18n.Normalize(c.PostForm("locale"))
+	if locale == "" {
+		c.Redirect(http.StatusSeeOther, "/profile")
+		return
+	}
+
+	if err := models.UpdateUserLocale(c.Request.Context(), h.db, userID, locale); err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.update_locale_failed")
+		return
+	}
+
+	SetSessionLocale(session, locale)
+	_ = session.Save()
+	c.Redirect(http.StatusSeeOther, "/profile?locale_success=1")
 }
 
 func (h *ProfileHandler) ChangePassword(c *gin.Context) {
@@ -80,28 +105,28 @@ func (h *ProfileHandler) ChangePassword(c *gin.Context) {
 	newPassword := c.PostForm("new_password")
 	confirmPassword := c.PostForm("confirm_password")
 
-	redirectWithError := func(message string) {
-		c.Redirect(http.StatusSeeOther, "/profile?password_error="+message+"#password")
+	redirectWithError := func(code string) {
+		c.Redirect(http.StatusSeeOther, "/profile?password_error="+code+"#password")
 	}
 
 	if len(newPassword) < 5 {
-		redirectWithError("Password+must+be+at+least+5+characters")
+		redirectWithError("error.password_too_short")
 		return
 	}
 
 	if newPassword != confirmPassword {
-		redirectWithError("Passwords+do+not+match")
+		redirectWithError("error.passwords_mismatch")
 		return
 	}
 
 	user, err := models.GetUserByID(c.Request.Context(), h.db, userID)
 	if err != nil || !user.CheckPassword(currentPassword) {
-		redirectWithError("Current+password+is+incorrect")
+		redirectWithError("error.current_password_wrong")
 		return
 	}
 
 	if err := models.UpdatePassword(c.Request.Context(), h.db, userID, newPassword); err != nil {
-		redirectWithError("Failed+to+update+password")
+		redirectWithError("error.update_password_failed")
 		return
 	}
 
@@ -114,25 +139,25 @@ func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
 
 	file, err := c.FormFile("avatar")
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=No+file+selected")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.no_file")
 		return
 	}
 
 	if file.Size > 2*1024*1024 {
-		c.Redirect(http.StatusSeeOther, "/profile?error=File+too+large")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.file_too_large")
 		return
 	}
 
 	src, err := file.Open()
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+read+file")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.read_file")
 		return
 	}
 	defer func() { _ = src.Close() }()
 
 	data, err := io.ReadAll(src)
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+read+file")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.read_file")
 		return
 	}
 
@@ -146,13 +171,13 @@ func (h *ProfileHandler) UploadAvatar(c *gin.Context) {
 		}
 	}
 	if !valid {
-		c.Redirect(http.StatusSeeOther, "/profile?error=Invalid+image+format")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.invalid_image")
 		return
 	}
 
 	err = models.UpdateAvatar(c.Request.Context(), h.db, userID, data, contentType)
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+save+avatar")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.save_avatar")
 		return
 	}
 

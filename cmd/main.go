@@ -87,6 +87,7 @@ func main() {
 		c.File("./static/service-worker.js")
 	})
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
+	r.Use(handlers.LocaleMiddleware(db))
 
 	auth := handlers.NewAuthHandler(db, config.SignInEnabled())
 	profile := handlers.NewProfileHandler(db)
@@ -118,6 +119,7 @@ func main() {
 		protected.GET("/dashboard", auth.Dashboard)
 		protected.GET("/dashboard/stats", auth.DashboardStats)
 		protected.GET("/profile", profile.ProfilePage)
+		protected.POST("/profile/locale", profile.ChangeLocale)
 		protected.POST("/profile/avatar", profile.UploadAvatar)
 		protected.POST("/profile/password", profile.ChangePassword)
 		protected.GET("/profile/avatar", profile.ServeAvatar)

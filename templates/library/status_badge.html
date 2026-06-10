@@ -9,10 +9,10 @@
         class="w-full text-xs bg-gray-800 border border-gray-700
                rounded px-2 py-1 text-white focus:outline-none
                focus:border-indigo-500 cursor-pointer">
-        <option value="owned"     {{if eq .status "owned"}}selected{{end}}>Owned</option>
-        <option value="playing"   {{if eq .status "playing"}}selected{{end}}>Playing</option>
-        <option value="completed" {{if eq .status "completed"}}selected{{end}}>Completed</option>
-        <option value="dropped"   {{if eq .status "dropped"}}selected{{end}}>Dropped</option>
+        <option value="owned"     {{if eq .status "owned"}}selected{{end}}>{{call .T "status.owned"}}</option>
+        <option value="playing"   {{if eq .status "playing"}}selected{{end}}>{{call .T "status.playing"}}</option>
+        <option value="completed" {{if eq .status "completed"}}selected{{end}}>{{call .T "status.completed"}}</option>
+        <option value="dropped"   {{if eq .status "dropped"}}selected{{end}}>{{call .T "status.dropped"}}</option>
     </select>
 </div>
 {{end}}

@@ -1,8 +1,8 @@
 {{define "library/library_search_results"}}
 {{if .error}}
-<p class="text-sm text-red-400 py-2">{{.error}}</p>
+<p class="text-sm text-red-400 py-2">{{call .T .error}}</p>
 {{else if and .searched (not .games)}}
-<p class="text-sm text-gray-500 py-2">No games found.</p>
+<p class="text-sm text-gray-500 py-2">{{call .T "library.no_games_found"}}</p>
 {{else if .games}}
 <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mt-2">
     {{range .games}}

@@ -1,10 +1,10 @@
 {{define "library/index"}}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-950">
+<html lang="{{.lang}}" class="h-full bg-gray-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Library — Helios Gaming tracker</title>
+    <title>{{call .T "library.title"}} — {{call .T "app.name"}}</title>
     {{template "layout/pwa_head" .}}
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
@@ -15,26 +15,26 @@
 
     <main class="max-w-5xl mx-auto px-4 py-10 w-full">
         <div class="mb-8 flex items-center justify-between">
-            <h1 class="text-3xl font-bold">Game Library</h1>
+            <h1 class="text-3xl font-bold">{{call .T "library.title"}}</h1>
         </div>
 
         {{if .error}}
         <div class="mb-6 px-4 py-3 bg-red-950 border border-red-800
                     rounded-lg text-red-300 text-sm">
-            {{.error}}
+            {{call .T .error}}
         </div>
         {{end}}
 
         <div class="mb-10">
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h2 class="text-lg font-semibold mb-4">Search Library</h2>
+                <h2 class="text-lg font-semibold mb-4">{{call .T "library.search_library"}}</h2>
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2
                                text-gray-500 pointer-events-none"></i>
                     <input
                         type="text"
                         name="q"
-                        placeholder="Search your library..."
+                        placeholder="{{call .T "library.search_placeholder"}}"
                         class="w-full bg-gray-800 border border-gray-700 rounded-lg
                                pl-10 pr-4 py-2.5 text-white placeholder-gray-500
                                focus:outline-none focus:border-indigo-500 transition-colors"
@@ -50,7 +50,7 @@
 
         <div>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <h2 class="text-xl font-bold">My Library</h2>
+                <h2 class="text-xl font-bold">{{call .T "library.my_library"}}</h2>
                 {{template "library/group_by_control" .}}
             </div>
             <div id="library-section"
@@ -59,7 +59,7 @@
                  hx-include="[name='group_by']:checked"
                  hx-swap="innerHTML"
                  class="min-h-[200px]">
-                Loading library...
+                {{call .T "library.loading_library"}}
             </div>
         </div>
     </main>

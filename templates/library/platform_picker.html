@@ -1,6 +1,6 @@
 {{define "library/platform_picker"}}
 {{if gt (len .) 1}}
-<p class="text-xs text-gray-400">Select platform</p>
+<p class="text-xs text-gray-400">{{call .T "search.select_platform"}}</p>
 <div class="flex flex-col gap-1.5">
     {{range $i, $p := .}}
     <label class="cursor-pointer rounded-lg border border-gray-600 px-2 py-1.5 text-xs

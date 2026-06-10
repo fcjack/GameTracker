@@ -2,9 +2,9 @@
 {{if not .hasGames}}
 <div class="bg-gray-900 border border-gray-800 rounded-xl p-8 text-center">
     <p class="text-4xl mb-3">📭</p>
-    <p class="font-semibold text-gray-200">{{if .emptyTitle}}{{.emptyTitle}}{{else}}No games yet{{end}}</p>
+    <p class="font-semibold text-gray-200">{{if .emptyTitle}}{{call .T .emptyTitle}}{{else}}{{call .T "library.no_games"}}{{end}}</p>
     <p class="mt-1 text-sm text-gray-500">
-        {{if .emptyHint}}{{.emptyHint}}{{else}}Search for a game above and click "Add to Library".{{end}}
+        {{if .emptyHint}}{{call .T .emptyHint}}{{else}}{{call .T "library.no_games_hint"}}{{end}}
     </p>
 </div>
 {{else if .groups}}

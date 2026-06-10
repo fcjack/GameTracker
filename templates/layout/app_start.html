@@ -13,11 +13,11 @@
 
         <div id="sidebarHeader" class="flex items-center gap-2 px-3 h-14 border-b border-gray-800 shrink-0 overflow-hidden">
             <img src="/static/icons/icon-192.png" alt="" class="w-8 h-8 rounded-lg shrink-0">
-            <span class="sidebar-label font-bold truncate">Helios Gaming tracker</span>
+            <span class="sidebar-label font-bold truncate">{{call .T "app.name"}}</span>
         </div>
 
         <div class="px-3 py-3 border-b border-gray-800 shrink-0 overflow-hidden">
-            <p class="sidebar-label text-xs text-gray-500 uppercase tracking-wide">Signed in as</p>
+            <p class="sidebar-label text-xs text-gray-500 uppercase tracking-wide">{{call .T "nav.signed_in_as"}}</p>
             <p class="sidebar-label text-sm text-gray-200 font-medium truncate">{{.username}}</p>
             <p class="sidebar-icon-only hidden text-center text-sm text-gray-200 font-medium"
                title="{{.username}}">
@@ -28,27 +28,27 @@
         <nav class="flex-1 overflow-y-auto py-2">
             <a href="/dashboard"
                onclick="closeMobileSidebar()"
-               title="Dashboard"
+               title="{{call .T "nav.dashboard"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
                       {{if eq .activeNav "dashboard"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
                 <i class="fas fa-house w-5 text-center shrink-0"></i>
-                <span class="sidebar-label truncate">Dashboard</span>
+                <span class="sidebar-label truncate">{{call .T "nav.dashboard"}}</span>
             </a>
             <a href="/library"
                onclick="closeMobileSidebar()"
-               title="Game Library"
+               title="{{call .T "nav.library"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
                       {{if eq .activeNav "library"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
                 <i class="fas fa-gamepad w-5 text-center shrink-0"></i>
-                <span class="sidebar-label truncate">Game Library</span>
+                <span class="sidebar-label truncate">{{call .T "nav.library"}}</span>
             </a>
             <a href="/profile"
                onclick="closeMobileSidebar()"
-               title="Profile"
+               title="{{call .T "nav.profile"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
                       {{if eq .activeNav "profile"}}bg-gray-800 text-white{{else}}text-gray-300 hover:text-white hover:bg-gray-800{{end}}">
                 <i class="fas fa-user w-5 text-center shrink-0"></i>
-                <span class="sidebar-label truncate">Profile</span>
+                <span class="sidebar-label truncate">{{call .T "nav.profile"}}</span>
             </a>
         </nav>
 
@@ -56,19 +56,19 @@
             <button type="button"
                     id="sidebarCollapseBtn"
                     onclick="toggleSidebarCollapse()"
-                    title="Collapse sidebar"
+                    title="{{call .T "nav.collapse_sidebar"}}"
                     class="hidden md:flex w-full items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                            text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">
                 <i id="sidebarCollapseIcon" class="fas fa-angles-left w-5 text-center shrink-0"></i>
-                <span class="sidebar-label truncate">Collapse</span>
+                <span class="sidebar-label truncate">{{call .T "nav.collapse"}}</span>
             </button>
             <form method="POST" action="/logout">
                 <button type="submit"
-                        title="Sign out"
+                        title="{{call .T "nav.sign_out"}}"
                         class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm
                                text-gray-300 hover:text-white hover:bg-gray-800 transition-colors">
                     <i class="fas fa-right-from-bracket w-5 text-center shrink-0"></i>
-                    <span class="sidebar-label truncate">Sign out</span>
+                    <span class="sidebar-label truncate">{{call .T "nav.sign_out"}}</span>
                 </button>
             </form>
         </div>
@@ -80,7 +80,7 @@
             <button type="button"
                     id="sidebarToggle"
                     onclick="toggleSidebar()"
-                    aria-label="Toggle menu"
+                    aria-label="{{call .T "nav.toggle_menu"}}"
                     aria-controls="sidebar"
                     class="text-gray-400 hover:text-white transition-colors p-2 rounded-lg
                            hover:bg-gray-800 shrink-0">
@@ -88,7 +88,7 @@
             </button>
             <a href="/dashboard"
                class="md:hidden font-bold text-white truncate min-w-0">
-                Helios Gaming tracker
+                {{call .T "app.name"}}
             </a>
         </header>
 

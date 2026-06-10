@@ -34,7 +34,7 @@ func TestStartSteamImportNotLinked(t *testing.T) {
 	if w.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
 	}
-	if !strings.Contains(w.Header().Get("Location"), "error=Steam+account+not+linked") {
+	if !strings.Contains(w.Header().Get("Location"), "error=error.steam_not_linked") {
 		t.Errorf("redirect = %q, want steam not linked error", w.Header().Get("Location"))
 	}
 }

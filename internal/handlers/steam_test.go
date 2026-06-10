@@ -178,7 +178,7 @@ func TestSteamCallbackVerificationFailure(t *testing.T) {
 	if w.Code != http.StatusFound {
 		t.Fatalf("Callback() status = %d, want %d", w.Code, http.StatusFound)
 	}
-	if !strings.Contains(w.Header().Get("Location"), "error=Steam+verification+failed") {
+	if !strings.Contains(w.Header().Get("Location"), "error=error.steam_verification_failed") {
 		t.Errorf("redirect = %q, want verification failed error", w.Header().Get("Location"))
 	}
 }
@@ -196,7 +196,7 @@ func TestSteamCallbackInvalidClaimedID(t *testing.T) {
 
 	w := serveSteamCallback(t, h, 1, "/auth/steam/callback")
 
-	if !strings.Contains(w.Header().Get("Location"), "error=Invalid+Steam+response") {
+	if !strings.Contains(w.Header().Get("Location"), "error=error.invalid_steam_response") {
 		t.Errorf("redirect = %q, want invalid response error", w.Header().Get("Location"))
 	}
 }
@@ -214,7 +214,7 @@ func TestSteamCallbackInvalidSteamID(t *testing.T) {
 
 	w := serveSteamCallback(t, h, 1, "/auth/steam/callback?openid.claimed_id=https://steamcommunity.com/openid/id/not-a-number")
 
-	if !strings.Contains(w.Header().Get("Location"), "error=Invalid+Steam+ID") {
+	if !strings.Contains(w.Header().Get("Location"), "error=error.invalid_steam_id") {
 		t.Errorf("redirect = %q, want invalid steam id error", w.Header().Get("Location"))
 	}
 }

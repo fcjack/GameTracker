@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
@@ -61,7 +62,9 @@ func TestLibraryGridRendersAllGames(t *testing.T) {
 	tmpl := loadAllTemplates(filepath.Join("templates"))
 	data := gin.H{
 		"hasGames": true,
-		"games":    toLibraryCards(games, true),
+		"games":    toLibraryCardsWithLocale("en", games, true),
+		"T":        i18n.NewTranslator("en"),
+		"lang":     "en",
 	}
 	var buf strings.Builder
 	if err := tmpl.ExecuteTemplate(&buf, "library/game_grid", data); err != nil {

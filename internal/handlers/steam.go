@@ -74,31 +74,31 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 
 	resp, err := h.httpClient.PostForm(h.openIDURL, params)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/profile?error=Steam+verification+failed")
+		c.Redirect(http.StatusFound, "/profile?error=error.steam_verification_failed")
 		return
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/profile?error=Steam+verification+failed")
+		c.Redirect(http.StatusFound, "/profile?error=error.steam_verification_failed")
 		return
 	}
 
 	if !strings.Contains(string(body), "is_valid:true") {
-		c.Redirect(http.StatusFound, "/profile?error=Steam+verification+failed")
+		c.Redirect(http.StatusFound, "/profile?error=error.steam_verification_failed")
 		return
 	}
 
 	claimedID := c.Query("openid.claimed_id")
 	if claimedID == "" {
-		c.Redirect(http.StatusFound, "/profile?error=Invalid+Steam+response")
+		c.Redirect(http.StatusFound, "/profile?error=error.invalid_steam_response")
 		return
 	}
 
 	steamIDStr := extractSteamID(claimedID)
 	if steamIDStr == "" {
-		c.Redirect(http.StatusFound, "/profile?error=Invalid+Steam+ID")
+		c.Redirect(http.StatusFound, "/profile?error=error.invalid_steam_id")
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h *SteamHandler) Callback(c *gin.Context) {
 		nil,
 	)
 	if err != nil {
-		c.Redirect(http.StatusFound, "/profile?error=Failed+to+link+account")
+		c.Redirect(http.StatusFound, "/profile?error=error.link_account_failed")
 		return
 	}
 

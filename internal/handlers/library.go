@@ -9,6 +9,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
@@ -23,6 +24,8 @@ type libraryGameCard struct {
 	ShowPlatform        bool
 	NeedsCompletionYear bool
 	CurrentYear         int
+	Lang                string
+	T                   func(string, ...any) string
 }
 
 type libraryGameGroup struct {
@@ -30,43 +33,53 @@ type libraryGameGroup struct {
 	Games []libraryGameCard
 }
 
-func toLibraryCard(g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
+func toLibraryCardWithLocale(locale string, g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
 	currentYear := time.Now().Year()
 	return libraryGameCard{
 		UserGameWithGame:    g,
 		ShowPlatform:        showPlatform,
 		CurrentYear:         currentYear,
 		NeedsCompletionYear: g.ReleaseYear > 0 && g.ReleaseYear < currentYear,
+		Lang:                locale,
+		T:                   i18n.NewTranslator(locale),
 	}
 }
 
-func toLibraryCards(games []*models.UserGameWithGame, showPlatform bool) []libraryGameCard {
+func toLibraryCard(c *gin.Context, g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
+	return toLibraryCardWithLocale(LocaleFromContext(c), g, showPlatform)
+}
+
+func toLibraryCardsWithLocale(locale string, games []*models.UserGameWithGame, showPlatform bool) []libraryGameCard {
 	cards := make([]libraryGameCard, len(games))
 	for i, g := range games {
-		cards[i] = toLibraryCard(g, showPlatform)
+		cards[i] = toLibraryCardWithLocale(locale, g, showPlatform)
 	}
 	return cards
 }
 
-func toLibraryPlatformGroups(games []*models.UserGameWithGame) []libraryGameGroup {
+func toLibraryCards(c *gin.Context, games []*models.UserGameWithGame, showPlatform bool) []libraryGameCard {
+	return toLibraryCardsWithLocale(LocaleFromContext(c), games, showPlatform)
+}
+
+func toLibraryPlatformGroups(c *gin.Context, games []*models.UserGameWithGame) []libraryGameGroup {
 	grouped := models.GroupUserGamesByPlatform(games)
 	groups := make([]libraryGameGroup, len(grouped))
 	for i, g := range grouped {
 		groups[i] = libraryGameGroup{
 			Label: g.Platform,
-			Games: toLibraryCards(g.Games, false),
+			Games: toLibraryCardsWithLocale(LocaleFromContext(c), g.Games, false),
 		}
 	}
 	return groups
 }
 
-func toLibraryYearGroups(games []*models.UserGameWithGame) []libraryGameGroup {
+func toLibraryYearGroups(c *gin.Context, games []*models.UserGameWithGame) []libraryGameGroup {
 	grouped := models.GroupUserGamesByCompletionYear(games)
 	groups := make([]libraryGameGroup, len(grouped))
 	for i, g := range grouped {
 		groups[i] = libraryGameGroup{
-			Label: g.Label,
-			Games: toLibraryCards(g.Games, true),
+			Label: i18n.GroupYearLabel(LocaleFromContext(c), g.Label),
+			Games: toLibraryCardsWithLocale(LocaleFromContext(c), g.Games, true),
 		}
 	}
 	return groups
@@ -98,20 +111,20 @@ func (h *LibraryHandler) LibraryPage(c *gin.Context) {
 
 	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "library/index", gin.H{
-			"error":     "Failed to load library",
+		c.HTML(http.StatusInternalServerError, "library/index", ViewData(c, gin.H{
+			"error":     "error.load_library",
 			"username":  username,
 			"activeNav": "library",
 			"games":     nil,
-		})
+		}))
 		return
 	}
 
-	c.HTML(http.StatusOK, "library/index", gin.H{
+	c.HTML(http.StatusOK, "library/index", ViewData(c, gin.H{
 		"username":  username,
 		"activeNav": "library",
 		"games":     games,
-	})
+	}))
 }
 
 func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
@@ -129,20 +142,20 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 		games = nil
 	}
 
-	data := gin.H{
+	data := ViewData(c, gin.H{
 		"hasGames": len(games) > 0,
-	}
+	})
 	if c.Query("filter") == "active" {
-		data["emptyTitle"] = "No active games"
-		data["emptyHint"] = "Games you're playing or have completed appear here. Backlog and dropped games are on the full library page."
+		data["emptyTitle"] = "library.no_active_games"
+		data["emptyHint"] = "library.no_active_hint"
 	}
 	switch c.Query("group_by") {
 	case "platform":
-		data["groups"] = toLibraryPlatformGroups(games)
+		data["groups"] = toLibraryPlatformGroups(c, games)
 	case "year":
-		data["groups"] = toLibraryYearGroups(games)
+		data["groups"] = toLibraryYearGroups(c, games)
 	default:
-		data["games"] = toLibraryCards(games, true)
+		data["games"] = toLibraryCards(c, games, true)
 	}
 
 	c.HTML(http.StatusOK, "library/game_grid", data)
@@ -154,22 +167,22 @@ func (h *LibraryHandler) SearchLibrary(c *gin.Context) {
 
 	query := strings.TrimSpace(c.Query("q"))
 	if query == "" {
-		c.HTML(http.StatusOK, "library/library_search_results", gin.H{})
+		c.HTML(http.StatusOK, "library/library_search_results", ViewData(c, gin.H{}))
 		return
 	}
 
 	games, err := models.SearchUserGames(c.Request.Context(), h.db, userID, query, 20)
 	if err != nil {
-		c.HTML(http.StatusOK, "library/library_search_results", gin.H{
-			"error": "Search failed. Please try again.",
-		})
+		c.HTML(http.StatusOK, "library/library_search_results", ViewData(c, gin.H{
+			"error": "error.search_failed",
+		}))
 		return
 	}
 
-	c.HTML(http.StatusOK, "library/library_search_results", gin.H{
+	c.HTML(http.StatusOK, "library/library_search_results", ViewData(c, gin.H{
 		"searched": true,
-		"games":    toLibraryCards(games, true),
-	})
+		"games":    toLibraryCards(c, games, true),
+	}))
 }
 
 func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
@@ -178,15 +191,15 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 
 	query := strings.TrimSpace(c.Query("q"))
 	if query == "" {
-		c.HTML(http.StatusOK, "library/search_results", gin.H{"results": nil})
+		c.HTML(http.StatusOK, "library/search_results", ViewData(c, gin.H{"results": nil}))
 		return
 	}
 
 	results, err := h.igdb.Search(query, 10)
 	if err != nil {
-		c.HTML(http.StatusOK, "library/search_results", gin.H{
-			"error": "Search failed. Please try again.",
-		})
+		c.HTML(http.StatusOK, "library/search_results", ViewData(c, gin.H{
+			"error": "error.search_failed",
+		}))
 		return
 	}
 
@@ -221,10 +234,10 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 		enriched = append(enriched, rws)
 	}
 
-	c.HTML(http.StatusOK, "library/search_results", gin.H{
+	c.HTML(http.StatusOK, "library/search_results", ViewData(c, gin.H{
 		"results": enriched,
 		"userID":  userID,
-	})
+	}))
 }
 
 func (h *LibraryHandler) AddGame(c *gin.Context) {
@@ -301,9 +314,9 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 	}
 
 	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
-	c.HTML(http.StatusOK, "library/in_library_button", gin.H{
+	c.HTML(http.StatusOK, "library/in_library_button", ViewData(c, gin.H{
 		"gameID": game.ID,
-	})
+	}))
 }
 
 func (h *LibraryHandler) RemoveGame(c *gin.Context) {
@@ -347,13 +360,13 @@ func (h *LibraryHandler) CompleteGameForm(c *gin.Context) {
 	}
 
 	currentYear := time.Now().Year()
-	c.HTML(http.StatusOK, "library/complete_form", gin.H{
+	c.HTML(http.StatusOK, "library/complete_form", ViewData(c, gin.H{
 		"gameID":       gameID,
 		"name":         game.Name,
 		"releaseYear":  game.ReleaseYear,
 		"years":        completionYearOptions(game.ReleaseYear, currentYear),
 		"showPlatform": showPlatformFromQuery(c),
-	})
+	}))
 }
 
 func (h *LibraryHandler) CompleteGame(c *gin.Context) {
@@ -445,7 +458,7 @@ func (h *LibraryHandler) setGameStatus(c *gin.Context, status string) {
 }
 
 func (h *LibraryHandler) renderGameCard(c *gin.Context, game *models.UserGameWithGame, showPlatform bool) {
-	c.HTML(http.StatusOK, "library/game_card", toLibraryCard(game, showPlatform))
+	c.HTML(http.StatusOK, "library/game_card", toLibraryCard(c, game, showPlatform))
 }
 
 func (h *LibraryHandler) UpdateStatus(c *gin.Context) {
@@ -474,8 +487,8 @@ func (h *LibraryHandler) UpdateStatus(c *gin.Context) {
 	}
 
 	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
-	c.HTML(http.StatusOK, "library/status_badge", gin.H{
+	c.HTML(http.StatusOK, "library/status_badge", ViewData(c, gin.H{
 		"status": status,
 		"gameID": gameID,
-	})
+	}))
 }

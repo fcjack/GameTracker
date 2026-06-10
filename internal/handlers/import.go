@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/importjob"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
@@ -23,20 +24,22 @@ func NewImportHandler(db *pgxpool.Pool, service *importjob.Service) *ImportHandl
 func (h *ImportHandler) SteamImportStatus(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
+	locale := LocaleFromContext(c)
 
 	job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "steam")
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.HTML(http.StatusOK, "profile/steam_import_status", gin.H{})
+			c.HTML(http.StatusOK, "profile/steam_import_status", ViewData(c, gin.H{}))
 			return
 		}
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
 
-	c.HTML(http.StatusOK, "profile/steam_import_status", gin.H{
-		"steamImportJob": job,
-	})
+	c.HTML(http.StatusOK, "profile/steam_import_status", ViewData(c, gin.H{
+		"steamImportJob":   job,
+		"importJobSummary": i18n.ImportJobSummary(job, locale),
+	}))
 }
 
 func (h *ImportHandler) StartSteamImport(c *gin.Context) {
@@ -46,16 +49,16 @@ func (h *ImportHandler) StartSteamImport(c *gin.Context) {
 	account, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "steam")
 	if err != nil {
 		if err == pgx.ErrNoRows {
-			c.Redirect(http.StatusSeeOther, "/profile?error=Steam+account+not+linked")
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.steam_not_linked")
 			return
 		}
-		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+start+import")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
 		return
 	}
 
 	_, err = h.service.StartSteamImport(c.Request.Context(), userID, account.ExternalID)
 	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=Failed+to+start+import")
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
 		return
 	}
 

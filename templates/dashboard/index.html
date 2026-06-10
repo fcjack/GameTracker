@@ -1,10 +1,10 @@
 {{define "dashboard/index"}}
 <!DOCTYPE html>
-<html lang="en" class="h-full bg-gray-950">
+<html lang="{{.lang}}" class="h-full bg-gray-950">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard — Helios Gaming tracker</title>
+    <title>{{call .T "dashboard.title"}} — {{call .T "app.name"}}</title>
     {{template "layout/pwa_head" .}}
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/htmx.org@2.0.3"></script>
@@ -15,11 +15,11 @@
 
     <main class="max-w-5xl mx-auto px-4 py-10 w-full">
         <div class="mb-8">
-            <h2 class="text-2xl font-bold">Welcome back, {{.username}}</h2>
+            <h2 class="text-2xl font-bold">{{call .T "dashboard.welcome_back" .username}}</h2>
             {{if .hasGames}}
-            <p class="mt-1 text-gray-400 text-sm">Search for games or manage your library below.</p>
+            <p class="mt-1 text-gray-400 text-sm">{{call .T "dashboard.has_games_hint"}}</p>
             {{else}}
-            <p class="mt-1 text-gray-400 text-sm">Your game library is empty. Search for a game below to get started.</p>
+            <p class="mt-1 text-gray-400 text-sm">{{call .T "dashboard.empty_hint"}}</p>
             {{end}}
         </div>
 
@@ -27,14 +27,14 @@
 
         <div class="mb-10">
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-6">
-                <h2 class="text-lg font-semibold mb-4">Search IGDB</h2>
+                <h2 class="text-lg font-semibold mb-4">{{call .T "dashboard.search_igdb"}}</h2>
                 <div class="relative">
                     <i class="fas fa-search absolute left-3 top-1/2 -translate-y-1/2
                                text-gray-500 pointer-events-none"></i>
                     <input
                         type="text"
                         name="q"
-                        placeholder="Search for a game..."
+                        placeholder="{{call .T "dashboard.search_placeholder"}}"
                         class="w-full bg-gray-800 border border-gray-700 rounded-lg
                                pl-10 pr-4 py-2.5 text-white placeholder-gray-500
                                focus:outline-none focus:border-indigo-500 transition-colors"
@@ -51,8 +51,8 @@
         <div>
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
                 <div>
-                    <h2 class="text-xl font-bold">My Library</h2>
-                    <p class="text-sm text-gray-500 mt-0.5">Playing and completed games only</p>
+                    <h2 class="text-xl font-bold">{{call .T "dashboard.my_library"}}</h2>
+                    <p class="text-sm text-gray-500 mt-0.5">{{call .T "dashboard.my_library_active_hint"}}</p>
                 </div>
                 {{template "library/group_by_control" .}}
             </div>
@@ -62,7 +62,7 @@
                  hx-include="[name='group_by']:checked"
                  hx-swap="innerHTML"
                  class="min-h-[200px]">
-                Loading library...
+                {{call .T "dashboard.loading_library"}}
             </div>
         </div>
     </main>
