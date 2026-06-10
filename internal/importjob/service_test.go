@@ -228,6 +228,97 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 	}
 }
 
+func TestStartSteamImportSkipsSoftDeleted(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const steamID = "76561198012345678"
+
+	steamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"response": map[string]any{
+				"game_count": 1,
+				"games": []map[string]any{
+					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon"},
+				},
+			},
+		})
+	}))
+	defer steamServer.Close()
+
+	igdbCalls := 0
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/games" || r.URL.Path == "/external_games" {
+			igdbCalls++
+		}
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		default:
+			w.Write([]byte("[]"))
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	existing, err := models.FindOrCreateGameBySteamAppID(ctx, db, 570, "Dota 2", "https://cdn.example.com/dota.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Steam"); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+	if err := models.RemoveFromLibrary(ctx, db, user.ID, existing.ID); err != nil {
+		t.Fatalf("RemoveFromLibrary() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+	storeClient := testStoreClient(t, map[int]string{570: "game"})
+	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
+
+	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
+	if err != nil {
+		t.Fatalf("StartSteamImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.ImportedCount != 0 {
+		t.Errorf("imported_count = %d, want 0", got.ImportedCount)
+	}
+	if got.SkippedCount != 1 {
+		t.Errorf("skipped_count = %d, want 1", got.SkippedCount)
+	}
+	if igdbCalls != 0 {
+		t.Errorf("igdb API calls = %d, want 0 for soft-deleted game", igdbCalls)
+	}
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 0 {
+		t.Fatalf("library count = %d, want 0 after soft-deleted Steam sync", len(games))
+	}
+}
+
 func TestStartSteamImportReturnsExistingActiveJob(t *testing.T) {
 	db := testDB(t)
 	defer db.Close()

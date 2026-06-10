@@ -346,7 +346,11 @@ func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, p
 	const query = `
 		INSERT INTO user_games (user_id, game_id, platform, status, tags, created_at, updated_at)
 		VALUES ($1, $2, $3, 'owned', '{}', NOW(), NOW())
-		ON CONFLICT (user_id, game_id) DO NOTHING
+		ON CONFLICT (user_id, game_id) DO UPDATE
+		SET deleted_at = NULL,
+		    platform = EXCLUDED.platform,
+		    updated_at = NOW()
+		WHERE user_games.deleted_at IS NOT NULL
 	`
 	_, err := db.Exec(ctx, query, userID, gameID, platform)
 	return err
@@ -362,6 +366,7 @@ func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query 
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
 		WHERE ug.user_id = $1
+		  AND ug.deleted_at IS NULL
 		  AND (
 			position(lower($2) in lower(g.name)) > 0
 			OR position(lower($2) in lower(ug.platform)) > 0
@@ -400,7 +405,7 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
-		WHERE ug.user_id = $1
+		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL
 		ORDER BY ug.created_at DESC
 	`
 	rows, err := db.Query(ctx, query, userID)
@@ -434,7 +439,7 @@ func ListUserGamesByStatuses(ctx context.Context, db *pgxpool.Pool, userID int64
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
-		WHERE ug.user_id = $1 AND ug.status = ANY($2)
+		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL AND ug.status = ANY($2)
 		ORDER BY ug.updated_at DESC
 	`
 	rows, err := db.Query(ctx, query, userID, statuses)
@@ -468,7 +473,7 @@ func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
-		WHERE ug.user_id = $1 AND ug.game_id = $2
+		WHERE ug.user_id = $1 AND ug.game_id = $2 AND ug.deleted_at IS NULL
 	`
 	var ug UserGameWithGame
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(
@@ -483,7 +488,11 @@ func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*
 }
 
 func RemoveFromLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) error {
-	const query = `DELETE FROM user_games WHERE user_id = $1 AND game_id = $2`
+	const query = `
+		UPDATE user_games
+		SET deleted_at = NOW(), updated_at = NOW()
+		WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
+	`
 	_, err := db.Exec(ctx, query, userID, gameID)
 	return err
 }
@@ -495,19 +504,19 @@ func UpdateGameStatus(ctx context.Context, db *pgxpool.Pool, userID, gameID int6
 		query = `
 			UPDATE user_games
 			SET status = $3, completed_at = COALESCE(completed_at, NOW()), dropped_at = NULL, updated_at = NOW()
-			WHERE user_id = $1 AND game_id = $2
+			WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
 		`
 	case "dropped":
 		query = `
 			UPDATE user_games
 			SET status = $3, dropped_at = NOW(), completed_at = NULL, updated_at = NOW()
-			WHERE user_id = $1 AND game_id = $2
+			WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
 		`
 	default:
 		query = `
 			UPDATE user_games
 			SET status = $3, completed_at = NULL, dropped_at = NULL, updated_at = NOW()
-			WHERE user_id = $1 AND game_id = $2
+			WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
 		`
 	}
 	ct, err := db.Exec(ctx, query, userID, gameID, status)
@@ -524,7 +533,7 @@ func MarkGameCompleted(ctx context.Context, db *pgxpool.Pool, userID, gameID int
 	const query = `
 		UPDATE user_games
 		SET status = 'completed', completed_at = $3, dropped_at = NULL, updated_at = NOW()
-		WHERE user_id = $1 AND game_id = $2
+		WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
 	`
 	ct, err := db.Exec(ctx, query, userID, gameID, completedAt)
 	if err != nil {
@@ -547,6 +556,20 @@ func GetCategoryByIGDBValue(ctx context.Context, db *pgxpool.Pool, igdbValue int
 }
 
 func IsInLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (bool, error) {
+	const query = `
+		SELECT EXISTS(
+			SELECT 1 FROM user_games
+			WHERE user_id = $1 AND game_id = $2 AND deleted_at IS NULL
+		)
+	`
+	var exists bool
+	err := db.QueryRow(ctx, query, userID, gameID).Scan(&exists)
+	return exists, err
+}
+
+// LibraryEntryExists reports whether the user has any library row for the game,
+// including soft-deleted entries kept to block Steam re-import.
+func LibraryEntryExists(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (bool, error) {
 	const query = `SELECT EXISTS(SELECT 1 FROM user_games WHERE user_id = $1 AND game_id = $2)`
 	var exists bool
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(&exists)
@@ -582,7 +605,7 @@ func GetGameStatistics(ctx context.Context, db *pgxpool.Pool, userID int64) (map
 	const query = `
 		SELECT status, COUNT(*) as count
 		FROM user_games
-		WHERE user_id = $1
+		WHERE user_id = $1 AND deleted_at IS NULL
 		GROUP BY status
 	`
 	rows, err := db.Query(ctx, query, userID)
@@ -615,6 +638,7 @@ func GetCompletedCountByYear(ctx context.Context, db *pgxpool.Pool, userID int64
 		SELECT COUNT(*)
 		FROM user_games
 		WHERE user_id = $1
+		  AND deleted_at IS NULL
 		  AND status = 'completed'
 		  AND completed_at IS NOT NULL
 		  AND EXTRACT(YEAR FROM completed_at) = $2
@@ -629,6 +653,7 @@ func ListCompletionYears(ctx context.Context, db *pgxpool.Pool, userID int64) ([
 		SELECT DISTINCT EXTRACT(YEAR FROM completed_at)::int AS year
 		FROM user_games
 		WHERE user_id = $1
+		  AND deleted_at IS NULL
 		  AND status = 'completed'
 		  AND completed_at IS NOT NULL
 		ORDER BY year DESC

@@ -317,11 +317,11 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 }
 
 func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64) (bool, error) {
-	inLibrary, err := models.IsInLibrary(ctx, s.db, userID, gameID)
+	exists, err := models.LibraryEntryExists(ctx, s.db, userID, gameID)
 	if err != nil {
 		return false, err
 	}
-	if inLibrary {
+	if exists {
 		return false, nil
 	}
 
