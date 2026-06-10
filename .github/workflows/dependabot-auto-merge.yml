@@ -31,10 +31,13 @@ jobs:
           fi
 
           AUTHOR=$(echo "$PR_DATA" | jq -r '.author.login')
-          if [ "$AUTHOR" != "dependabot[bot]" ]; then
-            echo "PR author is $AUTHOR, not dependabot[bot]. Skipping."
-            exit 0
-          fi
+          case "$AUTHOR" in
+            dependabot[bot]|app/dependabot) ;;
+            *)
+              echo "PR author is $AUTHOR, not a Dependabot PR. Skipping."
+              exit 0
+              ;;
+          esac
 
           PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
           gh pr merge "$PR_NUMBER" --repo "$GH_REPO" --squash --delete-branch
