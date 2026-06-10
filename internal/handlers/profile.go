@@ -211,5 +211,15 @@ func (h *ProfileHandler) ServeAvatar(c *gin.Context) {
 		return
 	}
 
+	// Avatars change on upload, so revalidate with an ETag instead of a
+	// fixed max-age: unchanged avatars short-circuit to a bodyless 304.
+	etag := fmt.Sprintf(`"%x"`, md5.Sum(data))
+	c.Header("ETag", etag)
+	c.Header("Cache-Control", "private, no-cache")
+	if c.GetHeader("If-None-Match") == etag {
+		c.Status(http.StatusNotModified)
+		return
+	}
+
 	c.Data(http.StatusOK, mime, data)
 }

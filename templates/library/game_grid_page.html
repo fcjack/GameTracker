@@ -1,0 +1,6 @@
+{{define "library/game_grid_page"}}
+{{range .games}}
+{{template "library/game_card" .}}
+{{end}}
+{{template "library/load_more_sentinel" .}}
+{{end}}

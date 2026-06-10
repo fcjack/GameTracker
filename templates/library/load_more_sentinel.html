@@ -1,0 +1,10 @@
+{{define "library/load_more_sentinel"}}
+{{if .nextPageURL}}
+<div class="col-span-full flex justify-center py-2 text-gray-600"
+     hx-get="{{.nextPageURL}}"
+     hx-trigger="revealed"
+     hx-swap="outerHTML">
+    <i class="fas fa-circle-notch fa-spin"></i>
+</div>
+{{end}}
+{{end}}

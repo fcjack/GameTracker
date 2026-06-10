@@ -431,22 +431,7 @@ func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query 
 	return list, rows.Err()
 }
 
-func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*UserGameWithGame, error) {
-	const query = `
-		SELECT
-			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
-			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
-		FROM user_games ug
-		JOIN games g     ON g.id = ug.game_id
-		JOIN categories c ON c.id = g.category_id
-		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL
-		ORDER BY ug.created_at DESC
-	`
-	rows, err := db.Query(ctx, query, userID)
-	if err != nil {
-		return nil, err
-	}
+func scanUserGamesWithGame(rows pgx.Rows) ([]*UserGameWithGame, error) {
 	defer rows.Close()
 
 	var list []*UserGameWithGame
@@ -465,7 +450,39 @@ func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*User
 	return list, rows.Err()
 }
 
+func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*UserGameWithGame, error) {
+	return ListUserGamesPage(ctx, db, userID, 0, 0)
+}
+
+// ListUserGamesPage returns one page of the user's library ordered by most
+// recently added. A limit of 0 returns all games.
+func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limit, offset int) ([]*UserGameWithGame, error) {
+	const query = `
+		SELECT
+			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
+			g.release_year, c.name AS category_name,
+			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+		FROM user_games ug
+		JOIN games g     ON g.id = ug.game_id
+		JOIN categories c ON c.id = g.category_id
+		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL
+		ORDER BY ug.created_at DESC, g.id DESC
+		LIMIT NULLIF($2, 0) OFFSET $3
+	`
+	rows, err := db.Query(ctx, query, userID, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+	return scanUserGamesWithGame(rows)
+}
+
 func ListUserGamesByStatuses(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string) ([]*UserGameWithGame, error) {
+	return ListUserGamesByStatusesPage(ctx, db, userID, statuses, 0, 0)
+}
+
+// ListUserGamesByStatusesPage returns one page of the user's library filtered
+// by status, ordered by most recently updated. A limit of 0 returns all games.
+func ListUserGamesByStatusesPage(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string, limit, offset int) ([]*UserGameWithGame, error) {
 	const query = `
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
@@ -475,28 +492,14 @@ func ListUserGamesByStatuses(ctx context.Context, db *pgxpool.Pool, userID int64
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
 		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL AND ug.status = ANY($2)
-		ORDER BY ug.updated_at DESC
+		ORDER BY ug.updated_at DESC, g.id DESC
+		LIMIT NULLIF($3, 0) OFFSET $4
 	`
-	rows, err := db.Query(ctx, query, userID, statuses)
+	rows, err := db.Query(ctx, query, userID, statuses, limit, offset)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var list []*UserGameWithGame
-	for rows.Next() {
-		var ug UserGameWithGame
-		err := rows.Scan(
-			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
-			&ug.ReleaseYear, &ug.CategoryName,
-			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
-		)
-		if err != nil {
-			return nil, err
-		}
-		list = append(list, &ug)
-	}
-	return list, rows.Err()
+	return scanUserGamesWithGame(rows)
 }
 
 func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*UserGameWithGame, error) {
@@ -611,6 +614,38 @@ func IsInLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (b
 	var exists bool
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(&exists)
 	return exists, err
+}
+
+// LibraryIGDBIDs returns the subset of the given IGDB IDs that are already in
+// the user's library, as a set.
+func LibraryIGDBIDs(ctx context.Context, db *pgxpool.Pool, userID int64, igdbIDs []int64) (map[int64]struct{}, error) {
+	inLibrary := make(map[int64]struct{})
+	if len(igdbIDs) == 0 {
+		return inLibrary, nil
+	}
+
+	const query = `
+		SELECT g.igdb_id
+		FROM user_games ug
+		JOIN games g ON g.id = ug.game_id
+		WHERE ug.user_id = $1
+		  AND ug.deleted_at IS NULL
+		  AND g.igdb_id = ANY($2)
+	`
+	rows, err := db.Query(ctx, query, userID, igdbIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id int64
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		inLibrary[id] = struct{}{}
+	}
+	return inLibrary, rows.Err()
 }
 
 // LibraryEntryExists reports whether the user has any library row for the game,

@@ -59,7 +59,12 @@ go test ./...
 
 # Run a single test
 go test ./internal/... -run TestName
+
+# Rebuild static/css/app.css after changing Tailwind classes in templates/ (requires Node.js)
+make css
 ```
+
+Tailwind CSS is built locally (no CDN): `tailwind.config.js` + `tailwind.css` compile to `static/css/app.css` via `make css` (also rebuilt in the Docker image's `assets` stage). HTMX is vendored at `static/js/htmx.min.js`. Both are referenced with `?v={{.version}}` for cache busting.
 
 ## Environment
 

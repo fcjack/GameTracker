@@ -97,7 +97,12 @@ func main() {
 	})
 	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 	r.SetHTMLTemplate(loadTemplates("templates"))
-	r.Static("/static", "./static")
+	// Static assets are referenced with a ?v=<version> query, so they can be
+	// cached aggressively and still bust on release.
+	static := r.Group("/static", func(c *gin.Context) {
+		c.Header("Cache-Control", "public, max-age=86400")
+	})
+	static.Static("/", "./static")
 	r.GET("/library/cover-placeholder", handlers.ServeCoverPlaceholder)
 	r.GET("/service-worker.js", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-cache")

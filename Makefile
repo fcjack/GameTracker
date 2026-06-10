@@ -1,10 +1,15 @@
 GOLANGCI_LINT_VERSION ?= v2.4.0
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix pre-commit install-hooks
+.PHONY: run css migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix pre-commit install-hooks
 
 run:
 	go run cmd/main.go
+
+# Regenerate static/css/app.css from templates (requires Node.js).
+# Run after adding/changing Tailwind classes in templates/.
+css:
+	npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.css -o static/css/app.css --minify
 
 migrate-up:
 	go run cmd/main.go migrate up

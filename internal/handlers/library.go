@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -112,50 +113,80 @@ func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandle
 
 func (h *LibraryHandler) LibraryPage(c *gin.Context) {
 	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
 	username := session.Get("username").(string)
 
-	games, err := models.ListUserGames(c.Request.Context(), h.db, userID)
-	if err != nil {
-		c.HTML(http.StatusInternalServerError, "library/index", ViewData(c, gin.H{
-			"error":     "error.load_library",
-			"username":  username,
-			"activeNav": "library",
-			"games":     nil,
-		}))
-		return
-	}
-
+	// The grid loads its own data via HTMX (GET /library/games), so the
+	// page shell renders without touching the database.
 	c.HTML(http.StatusOK, "library/index", ViewData(c, gin.H{
 		"username":  username,
 		"activeNav": "library",
-		"games":     games,
 	}))
+}
+
+const libraryPageSize = 30
+
+func nextLibraryPageURL(page int, filter string) string {
+	q := url.Values{}
+	q.Set("page", strconv.Itoa(page))
+	if filter != "" {
+		q.Set("filter", filter)
+	}
+	return "/library/games?" + q.Encode()
 }
 
 func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
 
+	groupBy := c.Query("group_by")
+	filter := c.Query("filter")
+	statuses := []string{"playing", "completed"}
+
+	page, _ := strconv.Atoi(c.Query("page"))
+	if page < 1 {
+		page = 1
+	}
+
 	var games []*models.UserGameWithGame
 	var err error
-	if c.Query("filter") == "active" {
-		games, err = models.ListUserGamesByStatuses(c.Request.Context(), h.db, userID, []string{"playing", "completed"})
+	hasMore := false
+
+	if groupBy == "platform" || groupBy == "year" {
+		// Grouped views need the full library; pagination applies to the flat grid only.
+		if filter == "active" {
+			games, err = models.ListUserGamesByStatuses(c.Request.Context(), h.db, userID, statuses)
+		} else {
+			games, err = models.ListUserGames(c.Request.Context(), h.db, userID)
+		}
 	} else {
-		games, err = models.ListUserGames(c.Request.Context(), h.db, userID)
+		// Fetch one extra row to know whether another page exists.
+		offset := (page - 1) * libraryPageSize
+		if filter == "active" {
+			games, err = models.ListUserGamesByStatusesPage(c.Request.Context(), h.db, userID, statuses, libraryPageSize+1, offset)
+		} else {
+			games, err = models.ListUserGamesPage(c.Request.Context(), h.db, userID, libraryPageSize+1, offset)
+		}
+		if len(games) > libraryPageSize {
+			games = games[:libraryPageSize]
+			hasMore = true
+		}
 	}
 	if err != nil {
 		games = nil
+		hasMore = false
 	}
 
 	data := ViewData(c, gin.H{
 		"hasGames": len(games) > 0,
 	})
-	if c.Query("filter") == "active" {
+	if filter == "active" {
 		data["emptyTitle"] = "library.no_active_games"
 		data["emptyHint"] = "library.no_active_hint"
 	}
-	switch c.Query("group_by") {
+	if hasMore {
+		data["nextPageURL"] = nextLibraryPageURL(page+1, filter)
+	}
+	switch groupBy {
 	case "platform":
 		data["groups"] = toLibraryPlatformGroups(c, games)
 	case "year":
@@ -164,6 +195,10 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 		data["games"] = toLibraryCards(c, games, true)
 	}
 
+	if page > 1 {
+		c.HTML(http.StatusOK, "library/game_grid_page", data)
+		return
+	}
 	c.HTML(http.StatusOK, "library/game_grid", data)
 }
 
@@ -216,6 +251,15 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 		CoverURL    string
 	}
 
+	igdbIDs := make([]int64, len(results))
+	for i, r := range results {
+		igdbIDs[i] = r.ID
+	}
+	inLibrary, err := models.LibraryIGDBIDs(c.Request.Context(), h.db, userID, igdbIDs)
+	if err != nil {
+		inLibrary = nil
+	}
+
 	enriched := make([]resultWithStatus, 0, len(results))
 	for _, r := range results {
 		rws := resultWithStatus{
@@ -225,17 +269,7 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 		if r.Cover != nil {
 			rws.CoverURL = r.Cover.URL
 		}
-
-		// Check if this IGDB game is already in the DB and in the user's library
-		var internalID int64
-		err := h.db.QueryRow(c.Request.Context(),
-			`SELECT id FROM games WHERE igdb_id = $1`, r.ID,
-		).Scan(&internalID)
-		if err == nil {
-			// Game exists in DB; check user_games
-			in, _ := models.IsInLibrary(c.Request.Context(), h.db, userID, internalID)
-			rws.InLibrary = in
-		}
+		_, rws.InLibrary = inLibrary[r.ID]
 
 		enriched = append(enriched, rws)
 	}

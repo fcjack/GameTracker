@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{call .T "auth.sign_in_page_title"}} — {{call .T "app.name"}}</title>
     {{template "layout/pwa_head" .}}
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/app.css?v={{.version}}">
 </head>
 <body class="h-full flex items-center justify-center px-4">
     <div class="w-full max-w-sm">
