@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/fcjack/GameTracker/compare/v0.1.1...v0.2.0) (2026-06-10)
+
+
+### Features
+
+* cache game covers with Steam-to-IGDB fallback and placeholder ([3c0caa4](https://github.com/fcjack/GameTracker/commit/3c0caa4476819da506006647632290b8268dc66f))
+
 ## [0.1.1](https://github.com/fcjack/GameTracker/compare/v0.1.0...v0.1.1) (2026-06-10)
 
 
