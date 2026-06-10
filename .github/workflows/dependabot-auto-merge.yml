@@ -16,12 +16,15 @@ jobs:
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'pull_request'
     steps:
+      - uses: actions/checkout@v4
+
       - name: Merge Dependabot PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           HEAD_BRANCH: ${{ github.event.workflow_run.head_branch }}
         run: |
-          PR_DATA=$(gh pr list --head "$HEAD_BRANCH" --state open --json number,author --jq '.[0]')
+          PR_DATA=$(gh pr list --repo "$GH_REPO" --head "$HEAD_BRANCH" --state open --json number,author --jq '.[0]')
           if [ -z "$PR_DATA" ] || [ "$PR_DATA" = "null" ]; then
             echo "No open PR found for branch $HEAD_BRANCH"
             exit 0
@@ -34,5 +37,5 @@ jobs:
           fi
 
           PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
-          gh pr merge "$PR_NUMBER" --squash --delete-branch
+          gh pr merge "$PR_NUMBER" --repo "$GH_REPO" --squash --delete-branch
           echo "Merged Dependabot PR #$PR_NUMBER"
