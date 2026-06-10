@@ -4,7 +4,8 @@
 
     {{if .CoverURL}}
     <img src="{{.CoverURL}}" alt="{{.Name}}"
-         class="w-full aspect-[3/4] object-cover bg-gray-800">
+         class="w-full aspect-[3/4] object-cover bg-gray-800"
+         onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';}else if(this.src.includes('library_600x900')){this.src=this.src.replace('library_600x900.jpg','header.jpg');}">
     {{else}}
     <div class="w-full aspect-[3/4] bg-gray-800 flex items-center
                 justify-center">

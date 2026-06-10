@@ -298,8 +298,12 @@ func (s *Service) persistIGDBGame(ctx context.Context, userID int64, g steam.Own
 		return false, err
 	}
 
+	igdbCover := ""
+	if gameData.Cover != nil {
+		igdbCover = gameData.Cover.URL
+	}
 	coverURL := steam.CoverImageURL(g.AppID, g.ImgIconURL)
-	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL); err != nil {
+	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL, igdbCover); err != nil {
 		return false, err
 	}
 
@@ -318,7 +322,7 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 		return false, err
 	}
 
-	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL); err != nil {
+	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL, ""); err != nil {
 		return false, err
 	}
 

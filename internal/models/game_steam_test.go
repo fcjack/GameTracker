@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -93,8 +94,9 @@ func TestResolveGameForSteamImportMergesDuplicateRows(t *testing.T) {
 		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
 	}
 
-	const igdbID int64 = 9988001
-	const steamAppID = 9988002
+	suffix := time.Now().UnixNano() % 1000000
+	igdbID := int64(9988000000 + suffix)
+	steamAppID := int(9988001000 + int(suffix))
 
 	igdbOnly, err := FindOrCreateGameWithSteamAppID(
 		ctx, db, igdbID, nil,

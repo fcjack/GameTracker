@@ -287,15 +287,20 @@ func ResolveGameForSteamImport(
 }
 
 // ApplySteamImportMetadata updates canonical game display fields from Steam data.
-func ApplySteamImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64, name, coverURL string) error {
+// Steam cover takes precedence; fallbackCover (e.g. IGDB) is used only when steamCover is empty.
+func ApplySteamImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64, name, steamCover, fallbackCover string) error {
 	const query = `
 		UPDATE games
 		SET name = $2,
-		    cover_url = CASE WHEN $3 <> '' THEN $3 ELSE cover_url END,
+		    cover_url = CASE
+		        WHEN $3 <> '' THEN $3
+		        WHEN $4 <> '' THEN $4
+		        ELSE cover_url
+		    END,
 		    updated_at = NOW()
 		WHERE id = $1
 	`
-	_, err := db.Exec(ctx, query, gameID, name, coverURL)
+	_, err := db.Exec(ctx, query, gameID, name, steamCover, fallbackCover)
 	return err
 }
 

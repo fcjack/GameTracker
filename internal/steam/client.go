@@ -22,17 +22,20 @@ type OwnedGame struct {
 	ImgIconURL string `json:"img_icon_url"`
 }
 
-// CoverImageURL returns a Steam CDN image suitable for library cards.
-// Uses the library capsule when available, otherwise the app icon from the API.
-func CoverImageURL(appID int, iconHash string) string {
-	if iconHash != "" {
-		return fmt.Sprintf(
-			"https://shared.cloudflare.steamstatic.com/steamcommunity/public/images/apps/%d/%s.jpg",
-			appID, iconHash,
-		)
-	}
+// CoverImageURL returns a Steam CDN library capsule suitable for library cards.
+// img_icon_url hashes point at 32px icons whose CDN paths are unreliable; the
+// vertical library capsule is the stable choice for cover art.
+func CoverImageURL(appID int, _ string) string {
 	return fmt.Sprintf(
-		"https://shared.cloudflare.steamstatic.com/store_item_assets/steam/apps/%d/library_600x900.jpg",
+		"https://cdn.cloudflare.steamstatic.com/steam/apps/%d/library_600x900.jpg",
+		appID,
+	)
+}
+
+// HeaderImageURL returns the wide Steam store header image, used as cover fallback.
+func HeaderImageURL(appID int) string {
+	return fmt.Sprintf(
+		"https://cdn.cloudflare.steamstatic.com/steam/apps/%d/header.jpg",
 		appID,
 	)
 }

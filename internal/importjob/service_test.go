@@ -610,8 +610,8 @@ func TestStartSteamImportPrefersSteamMetadata(t *testing.T) {
 	if games[0].Name != "Counter-Strike 2" {
 		t.Errorf("name = %q, want Counter-Strike 2 from Steam", games[0].Name)
 	}
-	if !strings.Contains(games[0].CoverURL, "/991730/cs_icon.jpg") {
-		t.Errorf("cover_url = %q, want Steam CDN icon", games[0].CoverURL)
+	if !strings.Contains(games[0].CoverURL, "/991730/library_600x900.jpg") {
+		t.Errorf("cover_url = %q, want Steam library capsule", games[0].CoverURL)
 	}
 }
 

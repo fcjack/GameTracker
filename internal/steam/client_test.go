@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -48,14 +47,16 @@ func TestGetOwnedGames(t *testing.T) {
 }
 
 func TestCoverImageURL(t *testing.T) {
+	want := "https://cdn.cloudflare.steamstatic.com/steam/apps/570/library_600x900.jpg"
+
 	withIcon := CoverImageURL(570, "7d5a243f9500d2f8467312822f8af2a2928777ed")
-	if !strings.Contains(withIcon, "/570/7d5a243f9500d2f8467312822f8af2a2928777ed.jpg") {
-		t.Errorf("icon cover = %q", withIcon)
+	if withIcon != want {
+		t.Errorf("with icon hash = %q, want %q", withIcon, want)
 	}
 
-	fallback := CoverImageURL(570, "")
-	if !strings.Contains(fallback, "/570/library_600x900.jpg") {
-		t.Errorf("fallback cover = %q", fallback)
+	withoutIcon := CoverImageURL(570, "")
+	if withoutIcon != want {
+		t.Errorf("without icon hash = %q, want %q", withoutIcon, want)
 	}
 }
 
