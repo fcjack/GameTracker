@@ -1,4 +1,7 @@
-.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs
+GOLANGCI_LINT_VERSION ?= v2.4.0
+GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: run migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix pre-commit
 
 run:
 	go run cmd/main.go
@@ -39,3 +42,17 @@ migration:
 
 tidy:
 	go mod tidy
+
+fmt:
+	gofmt -s -w .
+
+fmt-check:
+	@test -z "$$(gofmt -s -l .)" || (echo "Files need formatting. Run: make fmt"; exit 1)
+
+lint:
+	$(GOLANGCI_LINT) run ./...
+
+lint-fix:
+	$(GOLANGCI_LINT) run --fix ./...
+
+pre-commit: fmt lint-fix
