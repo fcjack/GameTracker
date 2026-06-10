@@ -5,7 +5,7 @@ name: game-tracker-deploy
 
 services:
   app:
-    image: ${APP_IMAGE:-game-tracker:latest}
+    image: ${APP_IMAGE:-docker.io/jackcoelho/game-tracker:latest}
     build:
       context: .
       dockerfile: Dockerfile
