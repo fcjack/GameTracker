@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
+	"github.com/jacksoncoelho/game-tracker/internal/version"
 )
 
 const localeSessionKey = "locale"
@@ -22,8 +23,9 @@ func LocaleFromContext(c *gin.Context) string {
 func ViewData(c *gin.Context, extra gin.H) gin.H {
 	locale := LocaleFromContext(c)
 	data := gin.H{
-		"lang": locale,
-		"T":    i18n.NewTranslator(locale),
+		"lang":    locale,
+		"T":       i18n.NewTranslator(locale),
+		"version": version.Version,
 	}
 	for k, v := range extra {
 		data[k] = v
