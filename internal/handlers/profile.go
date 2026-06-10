@@ -62,18 +62,18 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 	}
 
 	c.HTML(http.StatusOK, "profile/index", ViewData(c, gin.H{
-		"username":           username,
-		"activeNav":          "profile",
-		"hasAvatar":          hasAvatar,
-		"gravatarURL":        gravatarURL,
-		"steamAccount":       steamAccount,
-		"steamImportJob":     steamImportJob,
-		"importJobSummary":   i18n.ImportJobSummary(steamImportJob, locale),
-		"locale":             locale,
-		"error":              c.Query("error"),
-		"passwordError":      c.Query("password_error"),
-		"passwordSuccess":    c.Query("password_success") == "1",
-		"localeSuccess":      c.Query("locale_success") == "1",
+		"username":         username,
+		"activeNav":        "profile",
+		"hasAvatar":        hasAvatar,
+		"gravatarURL":      gravatarURL,
+		"steamAccount":     steamAccount,
+		"steamImportJob":   steamImportJob,
+		"importJobSummary": i18n.ImportJobSummary(steamImportJob, locale),
+		"locale":           locale,
+		"error":            c.Query("error"),
+		"passwordError":    c.Query("password_error"),
+		"passwordSuccess":  c.Query("password_success") == "1",
+		"localeSuccess":    c.Query("locale_success") == "1",
 	}))
 }
 

@@ -4,9 +4,9 @@ import "testing"
 
 func TestParseBoolEnv(t *testing.T) {
 	tests := []struct {
-		value       string
-		defaultVal  bool
-		want        bool
+		value      string
+		defaultVal bool
+		want       bool
 	}{
 		{"", true, true},
 		{"", false, false},

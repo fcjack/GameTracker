@@ -140,9 +140,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	session.Set("username", user.Username)
 	locale := LocaleFromContext(c)
 	SetSessionLocale(session, locale)
-	if err := models.UpdateUserLocale(c.Request.Context(), h.db, user.ID, locale); err != nil {
-		// non-fatal; session locale still applies
-	}
+	_ = models.UpdateUserLocale(c.Request.Context(), h.db, user.ID, locale)
 	if err := session.Save(); err != nil {
 		c.HTML(http.StatusInternalServerError, "auth/register", ViewData(c, gin.H{
 			"SignInEnabled": true,
