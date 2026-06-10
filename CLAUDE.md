@@ -6,6 +6,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Self-hosted personal game tracker. Import libraries from Steam and Xbox, track status/progress/sessions, no social features. Installable as a PWA. Built with Go + Gin, HTMX + Go Templates + TailwindCSS, PostgreSQL.
 
+## Commits and releases
+
+All commits merged to `main` **must** use [Conventional Commits](https://www.conventionalcommits.org/). Release Please parses commit messages to determine version bumps and generate changelogs; non-conventional messages are ignored.
+
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+Common types:
+- `feat:` — new feature (minor bump before v1.0.0)
+- `fix:` — bug fix (patch bump)
+- `chore:` — tooling, docs, deps (included in changelog; usually no version bump unless combined with `Release-As`)
+- `docs:` — documentation only
+- `refactor:`, `test:`, `ci:` — internal changes
+
+Examples:
+```
+feat: add Xbox library import
+fix: prevent duplicate Steam game entries
+chore: update golangci-lint
+```
+
+To force a specific version, add a footer to the commit body:
+```
+Release-As: 0.2.0
+```
+
+Releases are automated via `.github/workflows/release-please.yml` on push to `main`. Release Please opens a PR that bumps `internal/version/version.go`, `CHANGELOG.md`, and `.release-please-manifest.json`. Merging that PR creates the GitHub release and tag (e.g. `v0.1.1`). The app displays the current version in the sidebar and auth pages.
+
 ## Commands
 
 ```bash
