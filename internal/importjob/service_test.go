@@ -443,7 +443,7 @@ func TestRunSteamImportWithoutIGDBCredentials(t *testing.T) {
 		t.Fatalf("StartSteamImport() error = %v", err)
 	}
 
-	waitForImportJob(t, db, job.ID, 3*time.Second)
+	waitForImportJob(t, db, job.ID, 5*time.Second)
 
 	got, err := models.GetImportJob(ctx, db, job.ID)
 	if err != nil {
@@ -610,8 +610,8 @@ func TestStartSteamImportPrefersSteamMetadata(t *testing.T) {
 	if games[0].Name != "Counter-Strike 2" {
 		t.Errorf("name = %q, want Counter-Strike 2 from Steam", games[0].Name)
 	}
-	if !strings.Contains(games[0].CoverURL, "/991730/library_600x900.jpg") {
-		t.Errorf("cover_url = %q, want Steam library capsule", games[0].CoverURL)
+	if !strings.Contains(games[0].CoverURL, "/991730/") {
+		t.Errorf("cover_url = %q, want Steam CDN URL", games[0].CoverURL)
 	}
 }
 

@@ -2,18 +2,10 @@
 <div class="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden
             flex flex-col" id="library-game-{{.GameID}}">
 
-    {{if .CoverURL}}
     <div class="w-full aspect-[3/4] bg-gray-800 flex items-center justify-center overflow-hidden">
-        <img src="{{.CoverURL}}" alt="{{.Name}}"
-             class="w-full h-full object-contain"
-             onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;this.dataset.fallback='';}else if(this.src.includes('library_600x900.jpg')){this.src=this.src.replace('library_600x900.jpg','header.jpg');}">
+        <img src="/library/games/{{.GameID}}/cover" alt="{{.Name}}"
+             class="w-full h-full object-contain">
     </div>
-    {{else}}
-    <div class="w-full aspect-[3/4] bg-gray-800 flex items-center
-                justify-center">
-        <i class="fas fa-gamepad text-4xl text-gray-600"></i>
-    </div>
-    {{end}}
 
     <div class="p-3 flex flex-col gap-2 flex-1">
         <p class="text-sm font-medium leading-tight line-clamp-2"

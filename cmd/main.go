@@ -98,6 +98,7 @@ func main() {
 	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 	r.SetHTMLTemplate(loadTemplates("templates"))
 	r.Static("/static", "./static")
+	r.GET("/library/cover-placeholder", handlers.ServeCoverPlaceholder)
 	r.GET("/service-worker.js", func(c *gin.Context) {
 		c.Header("Cache-Control", "no-cache")
 		c.File("./static/service-worker.js")
@@ -146,6 +147,7 @@ func main() {
 		protected.GET("/profile/steam/import-status", importHandler.SteamImportStatus)
 		protected.GET("/library", library.LibraryPage)
 		protected.GET("/library/games", library.LibraryGrid)
+		protected.GET("/library/games/:game_id/cover", library.ServeGameCover)
 		protected.GET("/library/search", library.SearchLibrary)
 		protected.GET("/library/search/igdb", library.SearchIGDB)
 		protected.POST("/library/games", library.AddGame)

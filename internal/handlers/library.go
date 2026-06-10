@@ -9,14 +9,16 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/cover"
 	"github.com/jacksoncoelho/game-tracker/internal/i18n"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
 type LibraryHandler struct {
-	db   *pgxpool.Pool
-	igdb *igdb.Client
+	db     *pgxpool.Pool
+	igdb   *igdb.Client
+	covers *cover.Resolver
 }
 
 type libraryGameCard struct {
@@ -101,7 +103,11 @@ func completionYearOptions(releaseYear, currentYear int) []int {
 }
 
 func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandler {
-	return &LibraryHandler{db: db, igdb: igdbClient}
+	return &LibraryHandler{
+		db:     db,
+		igdb:   igdbClient,
+		covers: cover.NewResolver(db, igdbClient),
+	}
 }
 
 func (h *LibraryHandler) LibraryPage(c *gin.Context) {
@@ -313,6 +319,8 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 		return
 	}
 
+	_ = h.covers.FetchAndStore(c.Request.Context(), game.ID)
+
 	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
 	c.HTML(http.StatusOK, "library/in_library_button", ViewData(c, gin.H{
 		"gameID": game.ID,
@@ -459,6 +467,41 @@ func (h *LibraryHandler) setGameStatus(c *gin.Context, status string) {
 
 func (h *LibraryHandler) renderGameCard(c *gin.Context, game *models.UserGameWithGame, showPlatform bool) {
 	c.HTML(http.StatusOK, "library/game_card", toLibraryCard(c, game, showPlatform))
+}
+
+func ServeCoverPlaceholder(c *gin.Context) {
+	c.Header("Cache-Control", "public, max-age=86400, immutable")
+	c.Data(http.StatusOK, cover.PlaceholderMIME, cover.Placeholder())
+}
+
+func (h *LibraryHandler) ServeGameCover(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	inLibrary, err := models.IsInLibrary(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+	if !inLibrary {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	data, mime, err := h.covers.GetOrFetch(c.Request.Context(), gameID)
+	if err != nil || len(data) == 0 {
+		ServeCoverPlaceholder(c)
+		return
+	}
+
+	c.Header("Cache-Control", "public, max-age=86400")
+	c.Data(http.StatusOK, mime, data)
 }
 
 func (h *LibraryHandler) UpdateStatus(c *gin.Context) {

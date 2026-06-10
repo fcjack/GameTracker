@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jacksoncoelho/game-tracker/internal/cover"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
@@ -17,10 +18,11 @@ import (
 const steamPlatform = "Steam"
 
 type Service struct {
-	db    *pgxpool.Pool
-	igdb  *igdb.Client
-	steam *steam.Client
-	store *steam.StoreClient
+	db     *pgxpool.Pool
+	igdb   *igdb.Client
+	steam  *steam.Client
+	store  *steam.StoreClient
+	covers *cover.Resolver
 }
 
 func NewService(db *pgxpool.Pool, igdbClient *igdb.Client) *Service {
@@ -32,10 +34,11 @@ func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient 
 		storeClient = steam.NewStoreClient()
 	}
 	return &Service{
-		db:    db,
-		igdb:  igdbClient,
-		steam: steamClient,
-		store: storeClient,
+		db:     db,
+		igdb:   igdbClient,
+		steam:  steamClient,
+		store:  storeClient,
+		covers: cover.NewResolver(db, igdbClient),
 	}
 }
 
@@ -307,6 +310,8 @@ func (s *Service) persistIGDBGame(ctx context.Context, userID int64, g steam.Own
 		return false, err
 	}
 
+	s.fetchCover(ctx, game.ID)
+
 	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
 }
 
@@ -326,7 +331,19 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 		return false, err
 	}
 
+	s.fetchCover(ctx, game.ID)
+
 	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
+}
+
+func (s *Service) fetchCover(ctx context.Context, gameID int64) {
+	go func() {
+		fetchCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.covers.FetchAndStore(fetchCtx, gameID); err != nil {
+			slog.Warn("cover fetch failed", "game_id", gameID, "error", err)
+		}
+	}()
 }
 
 func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64) (bool, error) {

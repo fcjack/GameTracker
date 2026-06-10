@@ -8,16 +8,11 @@
     <div class="game-card bg-gray-800 border border-gray-700 rounded-xl
                 overflow-hidden flex flex-col">
 
-        {{if .CoverURL}}
-        <div class="w-full aspect-[3/4] bg-gray-700 flex items-center justify-center overflow-hidden">
-            <img src="{{.CoverURL}}" alt="{{.Name}}"
-                 class="w-full h-full object-contain">
+        <div class="w-full aspect-[3/4] bg-gray-800 flex items-center justify-center overflow-hidden">
+            <img src="{{if .CoverURL}}{{.CoverURL}}{{else}}/library/cover-placeholder{{end}}" alt="{{.Name}}"
+                 class="w-full h-full object-contain"
+                 onerror="this.onerror=null;this.src='/library/cover-placeholder';">
         </div>
-        {{else}}
-        <div class="w-full aspect-[3/4] bg-gray-700 flex items-center justify-center">
-            <i class="fas fa-gamepad text-3xl text-gray-600"></i>
-        </div>
-        {{end}}
 
         <div class="p-3 flex flex-col gap-2 flex-1">
             <p class="text-sm font-medium leading-tight line-clamp-2"

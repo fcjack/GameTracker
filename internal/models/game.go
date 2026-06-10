@@ -164,6 +164,23 @@ func FindOrCreateGameWithSteamAppID(
 	return &g, err
 }
 
+func GetGameByID(ctx context.Context, db *pgxpool.Pool, gameID int64) (*Game, error) {
+	const query = `
+		SELECT id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		FROM games
+		WHERE id = $1
+	`
+	var g Game
+	err := db.QueryRow(ctx, query, gameID).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
 func GetGameBySteamAppID(ctx context.Context, db *pgxpool.Pool, steamAppID int) (*Game, error) {
 	const query = `
 		SELECT id, igdb_id, steam_app_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at

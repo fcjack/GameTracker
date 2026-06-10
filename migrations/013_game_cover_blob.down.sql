@@ -1,0 +1,2 @@
+ALTER TABLE games DROP COLUMN IF EXISTS cover_mime;
+ALTER TABLE games DROP COLUMN IF EXISTS cover_data;
