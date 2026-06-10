@@ -148,7 +148,31 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 	c.HTML(http.StatusOK, "library/game_grid", data)
 }
 
-func (h *LibraryHandler) Search(c *gin.Context) {
+func (h *LibraryHandler) SearchLibrary(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	query := strings.TrimSpace(c.Query("q"))
+	if query == "" {
+		c.HTML(http.StatusOK, "library/library_search_results", gin.H{})
+		return
+	}
+
+	games, err := models.SearchUserGames(c.Request.Context(), h.db, userID, query, 20)
+	if err != nil {
+		c.HTML(http.StatusOK, "library/library_search_results", gin.H{
+			"error": "Search failed. Please try again.",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "library/library_search_results", gin.H{
+		"searched": true,
+		"games":    toLibraryCards(games, true),
+	})
+}
+
+func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
 

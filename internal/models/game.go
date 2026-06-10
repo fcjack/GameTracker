@@ -352,6 +352,45 @@ func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, p
 	return err
 }
 
+func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query string, limit int) ([]*UserGameWithGame, error) {
+	const searchQuery = `
+		SELECT
+			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
+			g.release_year, c.name AS category_name,
+			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+		FROM user_games ug
+		JOIN games g     ON g.id = ug.game_id
+		JOIN categories c ON c.id = g.category_id
+		WHERE ug.user_id = $1
+		  AND (
+			position(lower($2) in lower(g.name)) > 0
+			OR position(lower($2) in lower(ug.platform)) > 0
+		  )
+		ORDER BY g.name ASC
+		LIMIT $3
+	`
+	rows, err := db.Query(ctx, searchQuery, userID, query, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var list []*UserGameWithGame
+	for rows.Next() {
+		var ug UserGameWithGame
+		err := rows.Scan(
+			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
+			&ug.ReleaseYear, &ug.CategoryName,
+			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		list = append(list, &ug)
+	}
+	return list, rows.Err()
+}
+
 func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*UserGameWithGame, error) {
 	const query = `
 		SELECT
