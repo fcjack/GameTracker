@@ -66,9 +66,8 @@ jobs:
 
       - name: Set image name
         run: |
-          repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
           if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            echo "IMAGE_NAME=${{ secrets.DOCKER_REGISTRY }}/${repo}" >> "$GITHUB_ENV"
+            echo "IMAGE_NAME=${{ secrets.DOCKER_REGISTRY }}/${{ secrets.DOCKER_USERNAME }}/game-tracker" >> "$GITHUB_ENV"
           else
             echo "IMAGE_NAME=game-tracker" >> "$GITHUB_ENV"
           fi
