@@ -34,7 +34,7 @@ var ptBRMessages = map[string]string{
 	"auth.already_have_account":      "Já tem uma conta?",
 	"auth.create_one":                "Crie uma",
 	"auth.sign_in_link":              "Entrar",
-	"auth.sign_in_disabled":          "Login e cadastro estão desativados no momento.",
+	"auth.registration_disabled":     "O cadastro de novas contas está desativado no momento.",
 
 	"error.invalid_credentials":       "Nome de usuário ou senha inválidos",
 	"error.session_failed":            "Falha ao salvar a sessão",

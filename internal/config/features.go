@@ -7,9 +7,9 @@ import (
 
 const envSignInEnabled = "SIGN_IN_ENABLED"
 
-// SignInEnabled reports whether sign-in and registration are allowed.
-// Defaults to true when SIGN_IN_ENABLED is unset.
-func SignInEnabled() bool {
+// RegistrationEnabled reports whether new account registration is allowed.
+// Defaults to true when SIGN_IN_ENABLED is unset. When false, existing users can still sign in.
+func RegistrationEnabled() bool {
 	return parseBoolEnv(os.Getenv(envSignInEnabled), true)
 }
 

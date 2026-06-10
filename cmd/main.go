@@ -105,7 +105,7 @@ func main() {
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
 	r.Use(handlers.LocaleMiddleware(db))
 
-	auth := handlers.NewAuthHandler(db, config.SignInEnabled())
+	auth := handlers.NewAuthHandler(db, config.RegistrationEnabled())
 	profile := handlers.NewProfileHandler(db)
 
 	igdbBaseURL := os.Getenv("IGDB_BASE_URL")

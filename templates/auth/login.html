@@ -24,7 +24,6 @@
             </div>
             {{end}}
 
-            {{if .SignInEnabled}}
             <form method="POST" action="/login" class="space-y-5">
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-300 mb-1.5">
@@ -63,14 +62,9 @@
                     {{call .T "auth.sign_in"}}
                 </button>
             </form>
-            {{else}}
-            <p class="text-sm text-gray-400 text-center">
-                {{call .T "auth.sign_in_disabled"}}
-            </p>
-            {{end}}
         </div>
 
-        {{if .SignInEnabled}}
+        {{if .RegistrationEnabled}}
         <p class="mt-5 text-center text-sm text-gray-500">
             {{call .T "auth.dont_have_account"}}
             <a href="/register" class="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">

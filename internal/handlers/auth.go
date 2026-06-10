@@ -13,19 +13,19 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
-const signInDisabledMessage = "auth.sign_in_disabled"
+const registrationDisabledMessage = "auth.registration_disabled"
 
 type AuthHandler struct {
-	db            *pgxpool.Pool
-	signInEnabled bool
+	db                  *pgxpool.Pool
+	registrationEnabled bool
 }
 
-func NewAuthHandler(db *pgxpool.Pool, signInEnabled bool) *AuthHandler {
-	return &AuthHandler{db: db, signInEnabled: signInEnabled}
+func NewAuthHandler(db *pgxpool.Pool, registrationEnabled bool) *AuthHandler {
+	return &AuthHandler{db: db, registrationEnabled: registrationEnabled}
 }
 
 func (h *AuthHandler) loginTemplateData(c *gin.Context, extra gin.H) gin.H {
-	data := ViewData(c, gin.H{"SignInEnabled": h.signInEnabled})
+	data := ViewData(c, gin.H{"RegistrationEnabled": h.registrationEnabled})
 	for k, v := range extra {
 		data[k] = v
 	}
@@ -41,13 +41,6 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
-	if !h.signInEnabled {
-		c.HTML(http.StatusForbidden, "auth/login", h.loginTemplateData(c, gin.H{
-			"error": signInDisabledMessage,
-		}))
-		return
-	}
-
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 
@@ -82,18 +75,18 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	if !h.signInEnabled {
+	if !h.registrationEnabled {
 		c.Redirect(http.StatusFound, "/login")
 		return
 	}
-	c.HTML(http.StatusOK, "auth/register", ViewData(c, gin.H{"SignInEnabled": true}))
+	c.HTML(http.StatusOK, "auth/register", ViewData(c, gin.H{"RegistrationEnabled": true}))
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
-	if !h.signInEnabled {
+	if !h.registrationEnabled {
 		c.HTML(http.StatusForbidden, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": false,
-			"error":         signInDisabledMessage,
+			"RegistrationEnabled": false,
+			"error":               registrationDisabledMessage,
 		}))
 		return
 	}
@@ -104,7 +97,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if len(username) < 3 {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": true,
+			"RegistrationEnabled": true,
 			"error":         "error.username_too_short",
 		}))
 		return
@@ -112,7 +105,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if len(password) < 5 {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": true,
+			"RegistrationEnabled": true,
 			"error":         "error.password_too_short",
 		}))
 		return
@@ -120,7 +113,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 
 	if password != confirm {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": true,
+			"RegistrationEnabled": true,
 			"error":         "error.passwords_mismatch",
 		}))
 		return
@@ -129,7 +122,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	user, err := models.CreateUser(c.Request.Context(), h.db, username, password)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": true,
+			"RegistrationEnabled": true,
 			"error":         "error.username_taken",
 		}))
 		return
@@ -143,7 +136,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	_ = models.UpdateUserLocale(c.Request.Context(), h.db, user.ID, locale)
 	if err := session.Save(); err != nil {
 		c.HTML(http.StatusInternalServerError, "auth/register", ViewData(c, gin.H{
-			"SignInEnabled": true,
+			"RegistrationEnabled": true,
 			"error":         "error.session_failed",
 		}))
 		return

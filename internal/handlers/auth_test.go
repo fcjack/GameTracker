@@ -28,26 +28,10 @@ func authTestRouter(h *AuthHandler) *gin.Engine {
 	return r
 }
 
-func TestLoginDisabled(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	h := &AuthHandler{signInEnabled: false}
-	r := authTestRouter(h)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/login", strings.NewReader("username=alice&password=secret"))
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	r.ServeHTTP(w, req)
-
-	if w.Code != http.StatusForbidden {
-		t.Fatalf("Login() status = %d, want %d", w.Code, http.StatusForbidden)
-	}
-}
-
 func TestRegisterDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := &AuthHandler{signInEnabled: false}
+	h := &AuthHandler{registrationEnabled: false}
 	r := authTestRouter(h)
 
 	form := url.Values{
@@ -68,7 +52,7 @@ func TestRegisterDisabled(t *testing.T) {
 func TestRegisterPageRedirectsWhenDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	h := &AuthHandler{signInEnabled: false}
+	h := &AuthHandler{registrationEnabled: false}
 	r := authTestRouter(h)
 
 	w := httptest.NewRecorder()

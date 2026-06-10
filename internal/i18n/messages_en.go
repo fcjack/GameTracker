@@ -34,7 +34,7 @@ var enMessages = map[string]string{
 	"auth.already_have_account":      "Already have an account?",
 	"auth.create_one":                "Create one",
 	"auth.sign_in_link":              "Sign in",
-	"auth.sign_in_disabled":          "Sign-in and registration are currently disabled.",
+	"auth.registration_disabled":   "New account registration is currently disabled.",
 
 	"error.invalid_credentials":       "Invalid username or password",
 	"error.session_failed":            "Failed to save session",

@@ -24,7 +24,7 @@
             </div>
             {{end}}
 
-            {{if .SignInEnabled}}
+            {{if .RegistrationEnabled}}
             <form method="POST" action="/register" class="space-y-5">
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-300 mb-1.5">
@@ -84,7 +84,7 @@
             </form>
             {{else}}
             <p class="text-sm text-gray-400 text-center">
-                {{call .T "auth.sign_in_disabled"}}
+                {{call .T "auth.registration_disabled"}}
             </p>
             {{end}}
         </div>
