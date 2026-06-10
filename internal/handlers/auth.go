@@ -98,7 +98,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if len(username) < 3 {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"RegistrationEnabled": true,
-			"error":         "error.username_too_short",
+			"error":               "error.username_too_short",
 		}))
 		return
 	}
@@ -106,7 +106,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if len(password) < 5 {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"RegistrationEnabled": true,
-			"error":         "error.password_too_short",
+			"error":               "error.password_too_short",
 		}))
 		return
 	}
@@ -114,7 +114,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if password != confirm {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"RegistrationEnabled": true,
-			"error":         "error.passwords_mismatch",
+			"error":               "error.passwords_mismatch",
 		}))
 		return
 	}
@@ -123,7 +123,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "auth/register", ViewData(c, gin.H{
 			"RegistrationEnabled": true,
-			"error":         "error.username_taken",
+			"error":               "error.username_taken",
 		}))
 		return
 	}
@@ -137,7 +137,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	if err := session.Save(); err != nil {
 		c.HTML(http.StatusInternalServerError, "auth/register", ViewData(c, gin.H{
 			"RegistrationEnabled": true,
-			"error":         "error.session_failed",
+			"error":               "error.session_failed",
 		}))
 		return
 	}
