@@ -3,7 +3,7 @@ package main
 import (
 	"html/template"
 	"io/fs"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -17,17 +17,22 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/handlers"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/importjob"
+	"github.com/jacksoncoelho/game-tracker/internal/logging"
+	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/joho/godotenv"
 )
 
 func main() {
+	logger := logging.Init()
+
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, reading from environment")
+		logger.Info("no .env file found, reading from environment")
 	}
 
 	db, err := database.Connect(os.Getenv("DATABASE_URL"))
 	if err != nil {
-		log.Fatalf("Database connection failed: %v", err)
+		logger.Error("database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
@@ -40,39 +45,49 @@ func main() {
 		switch direction {
 		case "up":
 			if err := database.RunMigrations(db); err != nil {
-				log.Fatalf("Migration failed: %v", err)
+				logger.Error("migration failed", "error", err)
+				os.Exit(1)
 			}
 		case "down":
 			if err := database.RollbackLastMigration(db); err != nil {
-				log.Fatalf("Rollback failed: %v", err)
+				logger.Error("rollback failed", "error", err)
+				os.Exit(1)
 			}
 		default:
-			log.Fatalf("Unknown migrate direction %q — use up or down", direction)
+			logger.Error("unknown migrate direction", "direction", direction)
+			os.Exit(1)
 		}
 		return
 	}
 
 	// Normal startup: run pending migrations then serve
 	if err := database.RunMigrations(db); err != nil {
-		log.Fatalf("Migrations failed: %v", err)
+		logger.Error("migrations failed", "error", err)
+		os.Exit(1)
 	}
 
 	secret := os.Getenv("SESSION_SECRET")
 	if secret == "" {
-		log.Fatal("SESSION_SECRET is required")
+		logger.Error("SESSION_SECRET is required")
+		os.Exit(1)
 	}
 
 	encryptionKey := os.Getenv("ENCRYPTION_KEY")
 	if encryptionKey == "" {
-		log.Fatal("ENCRYPTION_KEY is required")
+		logger.Error("ENCRYPTION_KEY is required")
+		os.Exit(1)
 	}
 
 	_, err = crypto.NewEncrypter(encryptionKey)
 	if err != nil {
-		log.Fatalf("Invalid ENCRYPTION_KEY: %v", err)
+		logger.Error("invalid ENCRYPTION_KEY", "error", err)
+		os.Exit(1)
 	}
 
-	r := gin.Default()
+	r := gin.New()
+	r.Use(handlers.Recovery())
+	r.Use(handlers.RequestMetrics())
+	r.Use(handlers.RequestLogger())
 	r.GET("/healthz", func(c *gin.Context) {
 		if err := db.Ping(c.Request.Context()); err != nil {
 			c.JSON(503, gin.H{"status": "unhealthy"})
@@ -80,6 +95,7 @@ func main() {
 		}
 		c.JSON(200, gin.H{"status": "ok"})
 	})
+	r.GET("/metrics", gin.WrapH(metrics.Handler()))
 	r.SetHTMLTemplate(loadTemplates("templates"))
 	r.Static("/static", "./static")
 	r.GET("/service-worker.js", func(c *gin.Context) {
@@ -145,12 +161,15 @@ func main() {
 		port = "8080"
 	}
 
+	logger.Info("server starting", "port", port)
 	if err := r.Run(":" + port); err != nil {
-		log.Fatalf("Server failed: %v", err)
+		logger.Error("server failed", "error", err)
+		os.Exit(1)
 	}
 }
 
 func loadTemplates(dir string) *template.Template {
+	logger := slog.Default()
 	tmpl := template.New("")
 	if err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".html") {
@@ -159,7 +178,8 @@ func loadTemplates(dir string) *template.Template {
 		template.Must(tmpl.ParseFiles(path))
 		return nil
 	}); err != nil {
-		log.Fatalf("load templates: %v", err)
+		logger.Error("load templates failed", "error", err)
+		os.Exit(1)
 	}
 	return tmpl
 }

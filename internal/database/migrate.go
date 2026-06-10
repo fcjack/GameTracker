@@ -3,7 +3,7 @@ package database
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sort"
@@ -61,7 +61,7 @@ func RunMigrations(db *pgxpool.Pool) error {
 	for _, file := range upFiles {
 		name := filepath.Base(file)
 		if applied[name] {
-			log.Printf("migration: skip  %s", name)
+			slog.Debug("migration skipped", "file", name)
 			continue
 		}
 
@@ -90,7 +90,7 @@ func RunMigrations(db *pgxpool.Pool) error {
 			return fmt.Errorf("commit %s: %w", name, err)
 		}
 
-		log.Printf("migration: apply %s", name)
+		slog.Info("migration applied", "file", name)
 	}
 
 	return nil
@@ -135,6 +135,6 @@ func RollbackLastMigration(db *pgxpool.Pool) error {
 		return fmt.Errorf("commit rollback: %w", err)
 	}
 
-	log.Printf("migration: rolled back %s", filename)
+	slog.Info("migration rolled back", "file", filename)
 	return nil
 }

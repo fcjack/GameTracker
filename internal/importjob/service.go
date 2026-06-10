@@ -2,12 +2,14 @@ package importjob
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
+	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 	"github.com/jacksoncoelho/game-tracker/internal/steam"
 )
@@ -67,11 +69,31 @@ func (s *Service) StartSteamImport(_ context.Context, userID int64, steamID stri
 }
 
 func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
+	const provider = "steam"
+
 	ctx := context.Background()
-	log.Printf("steam import job %d: started for user %d", jobID, userID)
+	start := time.Now()
+	metrics.ImportJobsActive.WithLabelValues(provider).Inc()
+	defer metrics.ImportJobsActive.WithLabelValues(provider).Dec()
+	metrics.ImportJobsTotal.WithLabelValues(provider, "started").Inc()
+
+	slog.Info("import job started",
+		"provider", provider,
+		"job_id", jobID,
+		"user_id", userID,
+	)
 
 	fail := func(msg string) {
-		log.Printf("steam import job %d failed: %s", jobID, msg)
+		duration := time.Since(start)
+		metrics.ImportJobsTotal.WithLabelValues(provider, "failed").Inc()
+		metrics.ImportJobDuration.WithLabelValues(provider).Observe(duration.Seconds())
+		slog.Error("import job failed",
+			"provider", provider,
+			"job_id", jobID,
+			"user_id", userID,
+			"error", msg,
+			"duration_ms", duration.Milliseconds(),
+		)
 		_ = models.FailImportJob(ctx, s.db, jobID, msg)
 	}
 
@@ -105,7 +127,11 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	skipped = processed
 	if processed > 0 {
 		if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
-			log.Printf("steam import job %d: progress update failed: %v", jobID, err)
+			slog.Warn("import job progress update failed",
+				"provider", provider,
+				"job_id", jobID,
+				"error", err,
+			)
 		}
 	}
 
@@ -115,7 +141,11 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		if _, exists := alreadyImported[g.AppID]; exists {
 			skipped++
 			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
-				log.Printf("steam import job %d: progress update failed: %v", jobID, err)
+				slog.Warn("import job progress update failed",
+					"provider", provider,
+					"job_id", jobID,
+					"error", err,
+				)
 			}
 			continue
 		}
@@ -141,13 +171,37 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		}
 
 		if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
-			log.Printf("steam import job %d: progress update failed: %v", jobID, err)
+			slog.Warn("import job progress update failed",
+				"provider", provider,
+				"job_id", jobID,
+				"error", err,
+			)
 		}
 	}
 
 	if err := models.CompleteImportJob(ctx, s.db, jobID); err != nil {
-		log.Printf("steam import job %d: complete failed: %v", jobID, err)
+		slog.Error("import job complete failed",
+			"provider", provider,
+			"job_id", jobID,
+			"error", err,
+		)
+		return
 	}
+
+	duration := time.Since(start)
+	metrics.ImportJobsTotal.WithLabelValues(provider, "completed").Inc()
+	metrics.ImportJobDuration.WithLabelValues(provider).Observe(duration.Seconds())
+	metrics.ImportGamesTotal.WithLabelValues(provider, "imported").Add(float64(imported))
+	metrics.ImportGamesTotal.WithLabelValues(provider, "skipped").Add(float64(skipped))
+	slog.Info("import job completed",
+		"provider", provider,
+		"job_id", jobID,
+		"user_id", userID,
+		"processed", processed,
+		"imported", imported,
+		"skipped", skipped,
+		"duration_ms", duration.Milliseconds(),
+	)
 }
 
 func (s *Service) lookupWithRetry(appID int, steamName string) (int64, error) {
