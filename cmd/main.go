@@ -72,6 +72,13 @@ func main() {
 	}
 
 	r := gin.Default()
+	r.GET("/healthz", func(c *gin.Context) {
+		if err := db.Ping(c.Request.Context()); err != nil {
+			c.JSON(503, gin.H{"status": "unhealthy"})
+			return
+		}
+		c.JSON(200, gin.H{"status": "ok"})
+	})
 	r.SetHTMLTemplate(loadTemplates("templates"))
 	r.Static("/static", "./static")
 	r.GET("/service-worker.js", func(c *gin.Context) {

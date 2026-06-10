@@ -1,0 +1,14 @@
+# APP_DOMAIN controls the public site address.
+#   - Set to your hostname (e.g. tracker.example.com) for automatic HTTPS.
+#   - Set to ":80" for HTTP-only access (no TLS).
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	reverse_proxy app:8080 {
+		health_uri /healthz
+		health_interval 30s
+		health_timeout 5s
+	}
+}

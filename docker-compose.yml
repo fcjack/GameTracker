@@ -1,3 +1,4 @@
+# Local development — hot-reloads templates/static via bind mounts.
 services:
   app:
     build: .
