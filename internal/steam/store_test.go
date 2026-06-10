@@ -6,7 +6,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strconv"
+	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func TestIsImportableAppType(t *testing.T) {
@@ -61,6 +63,34 @@ func TestStoreClientGetAppType(t *testing.T) {
 	}
 }
 
+func TestStoreClientGetAppTypeUsesCache(t *testing.T) {
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		json.NewEncoder(w).Encode(map[string]any{
+			"570": map[string]any{
+				"success": true,
+				"data":    map[string]any{"type": "game"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewStoreClientWithHTTP(server.URL, server.Client())
+	client.SetMinInterval(0)
+
+	ctx := context.Background()
+	if _, _, err := client.GetAppType(ctx, 570); err != nil {
+		t.Fatalf("first GetAppType() error = %v", err)
+	}
+	if _, _, err := client.GetAppType(ctx, 570); err != nil {
+		t.Fatalf("second GetAppType() error = %v", err)
+	}
+	if got := requests.Load(); got != 1 {
+		t.Errorf("store requests = %d, want 1 (cached second lookup)", got)
+	}
+}
+
 func TestStoreClientFilterImportableGames(t *testing.T) {
 	types := map[int]string{
 		570:    "game",
@@ -71,14 +101,18 @@ func TestStoreClientFilterImportableGames(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		appID := r.URL.Query().Get("appids")
-		typ, exists := types[mustAtoi(appID)]
+		appID, err := strconv.Atoi(r.URL.Query().Get("appids"))
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		typ, exists := types[appID]
 		if !exists {
 			http.NotFound(w, r)
 			return
 		}
 		json.NewEncoder(w).Encode(map[string]any{
-			appID: map[string]any{
+			strconv.Itoa(appID): map[string]any{
 				"success": true,
 				"data":    map[string]any{"type": typ},
 			},
@@ -109,7 +143,56 @@ func TestStoreClientFilterImportableGames(t *testing.T) {
 	}
 }
 
-func mustAtoi(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
+func TestStoreClientFilterImportableGamesParallel(t *testing.T) {
+	const apps = 12
+	var peakConcurrent atomic.Int32
+	var inFlight atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		current := inFlight.Add(1)
+		defer inFlight.Add(-1)
+		for {
+			peak := peakConcurrent.Load()
+			if current <= peak || peakConcurrent.CompareAndSwap(peak, current) {
+				break
+			}
+		}
+
+		time.Sleep(25 * time.Millisecond)
+
+		appID := r.URL.Query().Get("appids")
+		json.NewEncoder(w).Encode(map[string]any{
+			appID: map[string]any{
+				"success": true,
+				"data":    map[string]any{"type": "game"},
+			},
+		})
+	}))
+	defer server.Close()
+
+	client := NewStoreClientWithHTTP(server.URL, server.Client())
+	client.SetMinInterval(0)
+
+	games := make([]OwnedGame, apps)
+	for i := range games {
+		games[i] = OwnedGame{AppID: 1000 + i, Name: "Game"}
+	}
+
+	start := time.Now()
+	filtered, err := client.FilterImportableGames(context.Background(), games)
+	elapsed := time.Since(start)
+
+	if err != nil {
+		t.Fatalf("FilterImportableGames() error = %v", err)
+	}
+	if len(filtered) != apps {
+		t.Fatalf("filtered count = %d, want %d", len(filtered), apps)
+	}
+	if peak := peakConcurrent.Load(); peak < 2 {
+		t.Errorf("peak concurrent requests = %d, want at least 2", peak)
+	}
+	// Sequential would take ~12 * 25ms = 300ms; parallel should finish much faster.
+	if elapsed > 200*time.Millisecond {
+		t.Errorf("elapsed = %s, want well under 200ms with parallel lookups", elapsed)
+	}
 }
