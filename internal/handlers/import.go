@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-contrib/sessions"
@@ -63,4 +64,37 @@ func (h *ImportHandler) StartSteamImport(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusSeeOther, "/profile")
+}
+
+func (h *ImportHandler) ClearSteamLibrary(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	active, err := models.HasActiveImportJob(c.Request.Context(), h.db, userID, "steam")
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_steam_library_failed")
+		return
+	}
+	if active {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.import_in_progress")
+		return
+	}
+
+	_, err = models.GetLinkedAccount(c.Request.Context(), h.db, userID, "steam")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.steam_not_linked")
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_steam_library_failed")
+		return
+	}
+
+	removed, err := models.RemoveSteamGamesFromLibrary(c.Request.Context(), h.db, userID)
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_steam_library_failed")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?steam_cleared=%d", removed))
 }

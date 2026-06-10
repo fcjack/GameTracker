@@ -90,6 +90,52 @@ func TestSteamImportStatusNoJob(t *testing.T) {
 	}
 }
 
+func TestClearSteamLibrarySuccess(t *testing.T) {
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "steam", "76561198012345678", "Gamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	game, err := models.FindOrCreateGameBySteamAppID(ctx, db, 570, "Dota 2", "", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Steam"); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	svc := importjob.NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/steam/clear-library", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if !strings.Contains(w.Header().Get("Location"), "steam_cleared=1") {
+		t.Errorf("redirect = %q, want steam_cleared=1", w.Header().Get("Location"))
+	}
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 0 {
+		t.Fatalf("library count = %d, want 0 after clear", len(games))
+	}
+}
+
 func TestSteamImportStatusWithJob(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := testDB(t)
@@ -138,6 +184,7 @@ func newImportTestRouter(h *ImportHandler) *gin.Engine {
 	router.Use(sessions.Sessions("session", store))
 	router.SetHTMLTemplate(loadAllTemplates(filepath.Join("templates")))
 	router.POST("/profile/steam/import", h.StartSteamImport)
+	router.POST("/profile/steam/clear-library", h.ClearSteamLibrary)
 	router.GET("/profile/steam/import-status", h.SteamImportStatus)
 	return router
 }

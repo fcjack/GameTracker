@@ -168,6 +168,8 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		if added {
 			imported++
 			alreadyImported[g.AppID] = struct{}{}
+		} else {
+			skipped++
 		}
 
 		if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
@@ -261,15 +263,18 @@ func (s *Service) importIGDBGame(ctx context.Context, userID int64, g steam.Owne
 	if gameData == nil {
 		return false, false, nil
 	}
+	if !namesMatch(g.Name, gameData.Name) {
+		return false, false, nil
+	}
 	if !igdb.IsMainGame(gameData.Category) {
-		return false, true, nil
+		return false, false, nil
 	}
 
-	added, err := s.persistIGDBGame(ctx, userID, g.AppID, igdbID, gameData)
+	added, err := s.persistIGDBGame(ctx, userID, g, igdbID, gameData)
 	return added, true, err
 }
 
-func (s *Service) persistIGDBGame(ctx context.Context, userID int64, steamAppID int, igdbID int64, gameData *igdb.SearchResult) (bool, error) {
+func (s *Service) persistIGDBGame(ctx context.Context, userID int64, g steam.OwnedGame, igdbID int64, gameData *igdb.SearchResult) (bool, error) {
 	cat, err := models.GetCategoryByIGDBValue(ctx, s.db, gameData.Category)
 	if err != nil {
 		cat, err = models.GetCategoryByIGDBValue(ctx, s.db, 0)
@@ -278,23 +283,23 @@ func (s *Service) persistIGDBGame(ctx context.Context, userID int64, steamAppID 
 		}
 	}
 
-	coverURL := ""
-	if gameData.Cover != nil {
-		coverURL = gameData.Cover.URL
-	}
-
 	platforms := make([]string, len(gameData.Platforms))
 	for i, p := range gameData.Platforms {
 		platforms[i] = p.Name
 	}
 
 	game, err := models.ResolveGameForSteamImport(
-		ctx, s.db, steamAppID, igdbID,
-		gameData.Name, coverURL,
+		ctx, s.db, g.AppID, igdbID,
+		g.Name, steam.CoverImageURL(g.AppID, g.ImgIconURL),
 		igdb.ReleaseYear(gameData.FirstReleaseDate),
 		platforms, cat.ID,
 	)
 	if err != nil {
+		return false, err
+	}
+
+	coverURL := steam.CoverImageURL(g.AppID, g.ImgIconURL)
+	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL); err != nil {
 		return false, err
 	}
 
@@ -310,6 +315,10 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 	coverURL := steam.CoverImageURL(g.AppID, g.ImgIconURL)
 	game, err := models.FindOrCreateGameBySteamAppID(ctx, s.db, g.AppID, g.Name, coverURL, cat.ID)
 	if err != nil {
+		return false, err
+	}
+
+	if err := models.ApplySteamImportMetadata(ctx, s.db, game.ID, g.Name, coverURL); err != nil {
 		return false, err
 	}
 

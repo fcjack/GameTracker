@@ -93,8 +93,8 @@ func TestResolveGameForSteamImportMergesDuplicateRows(t *testing.T) {
 		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
 	}
 
-	const igdbID int64 = 88001
-	const steamAppID = 88001
+	const igdbID int64 = 9988001
+	const steamAppID = 9988002
 
 	igdbOnly, err := FindOrCreateGameWithSteamAppID(
 		ctx, db, igdbID, nil,

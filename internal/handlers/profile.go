@@ -61,6 +61,13 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
+	steamCleared := 0
+	if cleared := c.Query("steam_cleared"); cleared != "" {
+		if n, err := fmt.Sscanf(cleared, "%d", &steamCleared); err != nil || n != 1 {
+			steamCleared = 0
+		}
+	}
+
 	c.HTML(http.StatusOK, "profile/index", ViewData(c, gin.H{
 		"username":         username,
 		"activeNav":        "profile",
@@ -74,6 +81,7 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		"passwordError":    c.Query("password_error"),
 		"passwordSuccess":  c.Query("password_success") == "1",
 		"localeSuccess":    c.Query("locale_success") == "1",
+		"steamCleared":     steamCleared,
 	}))
 }
 

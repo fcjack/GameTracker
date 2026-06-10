@@ -142,6 +142,7 @@ func main() {
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)
 		protected.POST("/profile/steam/import", importHandler.StartSteamImport)
+		protected.POST("/profile/steam/clear-library", importHandler.ClearSteamLibrary)
 		protected.GET("/profile/steam/import-status", importHandler.SteamImportStatus)
 		protected.GET("/library", library.LibraryPage)
 		protected.GET("/library/games", library.LibraryGrid)

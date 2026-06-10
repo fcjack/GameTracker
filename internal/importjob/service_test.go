@@ -528,6 +528,177 @@ func TestStartSteamImportSkipsNonGameTypes(t *testing.T) {
 	}
 }
 
+func TestStartSteamImportPrefersSteamMetadata(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const steamID = "76561198012345678"
+
+	steamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"response": map[string]any{
+				"game_count": 1,
+				"games": []map[string]any{
+					{"appid": 991730, "name": "Counter-Strike 2", "img_icon_url": "cs_icon"},
+				},
+			},
+		})
+	}))
+	defer steamServer.Close()
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			text := string(body)
+			switch {
+			case strings.Contains(text, `external_games.uid = "991730"`):
+				json.NewEncoder(w).Encode([]map[string]any{{"id": 991001, "name": "Counter-Strike 2"}})
+			case strings.Contains(text, "where id = 991001"):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":                 991001,
+						"name":               "Counter-Strike",
+						"category":           0,
+						"cover":              map[string]any{"url": "//images.igdb.com/igdb/image/upload/t_thumb/coabc.jpg"},
+						"first_release_date": time.Date(2012, 8, 21, 0, 0, 0, 0, time.UTC).Unix(),
+						"platforms":          []map[string]any{{"name": "PC (Microsoft Windows)"}},
+					},
+				})
+			default:
+				json.NewEncoder(w).Encode([]any{})
+			}
+		default:
+			json.NewEncoder(w).Encode([]any{})
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+	svc := NewServiceWithSteam(
+		db, igdbClient,
+		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
+		testStoreClient(t, map[int]string{991730: "game"}),
+	)
+
+	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
+	if err != nil {
+		t.Fatalf("StartSteamImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].Name != "Counter-Strike 2" {
+		t.Errorf("name = %q, want Counter-Strike 2 from Steam", games[0].Name)
+	}
+	if !strings.Contains(games[0].CoverURL, "/991730/cs_icon.jpg") {
+		t.Errorf("cover_url = %q, want Steam CDN icon", games[0].CoverURL)
+	}
+}
+
+func TestStartSteamImportSkipsMismatchedIGDBName(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const steamID = "76561198012345678"
+
+	steamServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"response": map[string]any{
+				"game_count": 1,
+				"games": []map[string]any{
+					{"appid": 9912345, "name": "Steam Title", "img_icon_url": "icon"},
+				},
+			},
+		})
+	}))
+	defer steamServer.Close()
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			text := string(body)
+			switch {
+			case strings.Contains(text, `external_games.uid = "9912345"`):
+				json.NewEncoder(w).Encode([]map[string]any{{"id": 992002, "name": "Steam Title"}})
+			case strings.Contains(text, "where id = 992002"):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":       992002,
+						"name":     "Wrong IGDB Game",
+						"category": 0,
+					},
+				})
+			default:
+				json.NewEncoder(w).Encode([]any{})
+			}
+		default:
+			json.NewEncoder(w).Encode([]any{})
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+	svc := NewServiceWithSteam(
+		db, igdbClient,
+		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
+		testStoreClient(t, map[int]string{9912345: "game"}),
+	)
+
+	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
+	if err != nil {
+		t.Fatalf("StartSteamImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].Name != "Steam Title" {
+		t.Errorf("name = %q, want Steam Title", games[0].Name)
+	}
+	if games[0].IGDBId != nil {
+		t.Errorf("igdb_id = %v, want nil when IGDB name mismatches", games[0].IGDBId)
+	}
+}
+
 func testStoreClient(t *testing.T, types map[int]string) *steam.StoreClient {
 	t.Helper()
 

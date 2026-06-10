@@ -286,6 +286,19 @@ func ResolveGameForSteamImport(
 	)
 }
 
+// ApplySteamImportMetadata updates canonical game display fields from Steam data.
+func ApplySteamImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64, name, coverURL string) error {
+	const query = `
+		UPDATE games
+		SET name = $2,
+		    cover_url = CASE WHEN $3 <> '' THEN $3 ELSE cover_url END,
+		    updated_at = NOW()
+		WHERE id = $1
+	`
+	_, err := db.Exec(ctx, query, gameID, name, coverURL)
+	return err
+}
+
 func FindOrCreateGameBySteamAppID(
 	ctx context.Context,
 	db *pgxpool.Pool,
@@ -495,6 +508,17 @@ func RemoveFromLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int
 	`
 	_, err := db.Exec(ctx, query, userID, gameID)
 	return err
+}
+
+// RemoveSteamGamesFromLibrary hard-deletes every Steam-platform entry for the user
+// so a subsequent Steam sync can re-import from scratch.
+func RemoveSteamGamesFromLibrary(ctx context.Context, db *pgxpool.Pool, userID int64) (int64, error) {
+	const query = `DELETE FROM user_games WHERE user_id = $1 AND platform = 'Steam'`
+	ct, err := db.Exec(ctx, query, userID)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
 }
 
 func UpdateGameStatus(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, status string) error {
