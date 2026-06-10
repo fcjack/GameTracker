@@ -11,6 +11,7 @@ import (
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
+	"github.com/jacksoncoelho/game-tracker/internal/config"
 	"github.com/jacksoncoelho/game-tracker/internal/crypto"
 	"github.com/jacksoncoelho/game-tracker/internal/database"
 	"github.com/jacksoncoelho/game-tracker/internal/handlers"
@@ -87,7 +88,7 @@ func main() {
 	})
 	r.Use(sessions.Sessions("session", cookie.NewStore([]byte(secret))))
 
-	auth := handlers.NewAuthHandler(db)
+	auth := handlers.NewAuthHandler(db, config.SignInEnabled())
 	profile := handlers.NewProfileHandler(db)
 
 	igdbBaseURL := os.Getenv("IGDB_BASE_URL")

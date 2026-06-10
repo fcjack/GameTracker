@@ -12,12 +12,23 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 )
 
+const signInDisabledMessage = "Sign-in and registration are currently disabled."
+
 type AuthHandler struct {
-	db *pgxpool.Pool
+	db            *pgxpool.Pool
+	signInEnabled bool
 }
 
-func NewAuthHandler(db *pgxpool.Pool) *AuthHandler {
-	return &AuthHandler{db: db}
+func NewAuthHandler(db *pgxpool.Pool, signInEnabled bool) *AuthHandler {
+	return &AuthHandler{db: db, signInEnabled: signInEnabled}
+}
+
+func (h *AuthHandler) loginTemplateData(extra gin.H) gin.H {
+	data := gin.H{"SignInEnabled": h.signInEnabled}
+	for k, v := range extra {
+		data[k] = v
+	}
+	return data
 }
 
 func (h *AuthHandler) LoginPage(c *gin.Context) {
@@ -25,18 +36,25 @@ func (h *AuthHandler) LoginPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	c.HTML(http.StatusOK, "auth/login", gin.H{})
+	c.HTML(http.StatusOK, "auth/login", h.loginTemplateData(nil))
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
+	if !h.signInEnabled {
+		c.HTML(http.StatusForbidden, "auth/login", h.loginTemplateData(gin.H{
+			"error": signInDisabledMessage,
+		}))
+		return
+	}
+
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 
 	user, err := models.GetUserByUsername(c.Request.Context(), h.db, username)
 	if err != nil || !user.CheckPassword(password) {
-		c.HTML(http.StatusUnauthorized, "auth/login", gin.H{
+		c.HTML(http.StatusUnauthorized, "auth/login", h.loginTemplateData(gin.H{
 			"error": "Invalid username or password",
-		})
+		}))
 		return
 	}
 
@@ -44,9 +62,9 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	session.Set("user_id", user.ID)
 	session.Set("username", user.Username)
 	if err := session.Save(); err != nil {
-		c.HTML(http.StatusInternalServerError, "auth/login", gin.H{
+		c.HTML(http.StatusInternalServerError, "auth/login", h.loginTemplateData(gin.H{
 			"error": "Failed to save session",
-		})
+		}))
 		return
 	}
 
@@ -58,31 +76,46 @@ func (h *AuthHandler) RegisterPage(c *gin.Context) {
 		c.Redirect(http.StatusFound, "/dashboard")
 		return
 	}
-	c.HTML(http.StatusOK, "auth/register", gin.H{})
+	if !h.signInEnabled {
+		c.Redirect(http.StatusFound, "/login")
+		return
+	}
+	c.HTML(http.StatusOK, "auth/register", gin.H{"SignInEnabled": true})
 }
 
 func (h *AuthHandler) Register(c *gin.Context) {
+	if !h.signInEnabled {
+		c.HTML(http.StatusForbidden, "auth/register", gin.H{
+			"SignInEnabled": false,
+			"error":         signInDisabledMessage,
+		})
+		return
+	}
+
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 	confirm := c.PostForm("confirm_password")
 
 	if len(username) < 3 {
 		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
-			"error": "Username must be at least 3 characters",
+			"SignInEnabled": true,
+			"error":         "Username must be at least 3 characters",
 		})
 		return
 	}
 
 	if len(password) < 5 {
 		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
-			"error": "Password must be at least 5 characters",
+			"SignInEnabled": true,
+			"error":         "Password must be at least 5 characters",
 		})
 		return
 	}
 
 	if password != confirm {
 		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
-			"error": "Passwords do not match",
+			"SignInEnabled": true,
+			"error":         "Passwords do not match",
 		})
 		return
 	}
@@ -90,7 +123,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	user, err := models.CreateUser(c.Request.Context(), h.db, username, password)
 	if err != nil {
 		c.HTML(http.StatusBadRequest, "auth/register", gin.H{
-			"error": "Username already taken",
+			"SignInEnabled": true,
+			"error":         "Username already taken",
 		})
 		return
 	}
@@ -100,7 +134,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	session.Set("username", user.Username)
 	if err := session.Save(); err != nil {
 		c.HTML(http.StatusInternalServerError, "auth/register", gin.H{
-			"error": "Failed to save session",
+			"SignInEnabled": true,
+			"error":         "Failed to save session",
 		})
 		return
 	}

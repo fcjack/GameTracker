@@ -24,6 +24,7 @@
             </div>
             {{end}}
 
+            {{if .SignInEnabled}}
             <form method="POST" action="/register" class="space-y-5">
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-300 mb-1.5">
@@ -81,6 +82,11 @@
                     Create Account
                 </button>
             </form>
+            {{else}}
+            <p class="text-sm text-gray-400 text-center">
+                Sign-in and registration are currently disabled.
+            </p>
+            {{end}}
         </div>
 
         <p class="mt-5 text-center text-sm text-gray-500">

@@ -24,6 +24,7 @@
             </div>
             {{end}}
 
+            {{if .SignInEnabled}}
             <form method="POST" action="/login" class="space-y-5">
                 <div>
                     <label for="username" class="block text-sm font-medium text-gray-300 mb-1.5">
@@ -62,14 +63,21 @@
                     Sign In
                 </button>
             </form>
+            {{else}}
+            <p class="text-sm text-gray-400 text-center">
+                Sign-in and registration are currently disabled.
+            </p>
+            {{end}}
         </div>
 
+        {{if .SignInEnabled}}
         <p class="mt-5 text-center text-sm text-gray-500">
             Don't have an account?
             <a href="/register" class="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
                 Create one
             </a>
         </p>
+        {{end}}
     </div>
     {{template "layout/pwa_register" .}}
 </body>
