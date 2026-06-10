@@ -1,12 +1,16 @@
 name: Docker Release
 
 on:
-  release:
-    types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: Release tag to build (e.g. v0.2.0)
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       tag:
-        description: Release tag to build (e.g. v0.1.1)
+        description: Release tag to build (e.g. v0.2.0)
         required: true
 
 permissions:
@@ -20,7 +24,7 @@ jobs:
       REGISTRY: docker.io
       IMAGE_REPOSITORY: jackcoelho/game-tracker
       IMAGE_NAME: docker.io/jackcoelho/game-tracker
-      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      RELEASE_TAG: ${{ inputs.tag }}
     steps:
       - uses: actions/checkout@v6
         with:
