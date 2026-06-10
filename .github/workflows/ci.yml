@@ -3,11 +3,8 @@ name: CI
 on:
   push:
     branches: [main]
-    tags: [v*]
   pull_request:
     branches: [main]
-  release:
-    types: [published]
 
 jobs:
   lint:
@@ -69,12 +66,10 @@ jobs:
       IMAGE_REPOSITORY: jackcoelho/game-tracker
     steps:
       - uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.release.tag_name || github.ref }}
 
       - name: Set image name
         run: |
-          if { [ "${{ github.event_name }}" = "push" ] && { [ "${{ github.ref }}" = "refs/heads/main" ] || [[ "${{ github.ref }}" == refs/tags/v* ]]; }; } || [ "${{ github.event_name }}" = "release" ]; then
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
             echo "IMAGE_NAME=${REGISTRY}/${IMAGE_REPOSITORY}" >> "$GITHUB_ENV"
           else
             echo "IMAGE_NAME=game-tracker" >> "$GITHUB_ENV"
@@ -88,15 +83,12 @@ jobs:
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}
-            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}
-            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}
-            type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
-            type=sha,prefix=,enable=${{ github.ref == 'refs/heads/main' }}
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release' }}
+            type=ref,event=branch
+            type=sha,prefix=
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Prepare Docker Hub token
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'release'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           RAW_TOKEN: ${{ secrets.DOCKER_PASSWORD }}
         run: |
@@ -109,7 +101,7 @@ jobs:
           echo "DOCKER_PASSWORD=${TOKEN}" >> "$GITHUB_ENV"
 
       - name: Validate Docker Hub credentials
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'release'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           DOCKER_PASSWORD: ${{ env.DOCKER_PASSWORD }}
         run: |
@@ -125,7 +117,7 @@ jobs:
           echo "Docker Hub credentials validated."
 
       - name: Log in to Docker Hub
-        if: (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'release'
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4
         with:
           username: jackcoelho
@@ -136,7 +128,7 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          push: ${{ (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || github.event_name == 'release' }}
+          push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

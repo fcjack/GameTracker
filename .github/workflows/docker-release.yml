@@ -1,0 +1,88 @@
+name: Docker Release
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to build (e.g. v0.1.1)
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    env:
+      REGISTRY: docker.io
+      IMAGE_REPOSITORY: jackcoelho/game-tracker
+      IMAGE_NAME: docker.io/jackcoelho/game-tracker
+      RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.RELEASE_TAG }}
+
+      - name: Set Docker tags
+        id: tags
+        run: |
+          TAG="${RELEASE_TAG}"
+          VERSION="${TAG#v}"
+          MAJOR="${VERSION%%.*}"
+          MINOR="$(echo "$VERSION" | cut -d. -f1,2)"
+          {
+            echo "tags<<EOF"
+            echo "${IMAGE_NAME}:${VERSION}"
+            echo "${IMAGE_NAME}:${MINOR}"
+            echo "${IMAGE_NAME}:${MAJOR}"
+            echo "${IMAGE_NAME}:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v4
+
+      - name: Prepare Docker Hub token
+        env:
+          RAW_TOKEN: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          if [ -z "$RAW_TOKEN" ]; then
+            echo "::error::DOCKER_PASSWORD secret is missing. Add a Docker Hub access token to repository secrets."
+            exit 1
+          fi
+          TOKEN="$(printf '%s' "$RAW_TOKEN" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          echo "::add-mask::${TOKEN}"
+          echo "DOCKER_PASSWORD=${TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Validate Docker Hub credentials
+        env:
+          DOCKER_PASSWORD: ${{ env.DOCKER_PASSWORD }}
+        run: |
+          http_code="$(curl -s -o /tmp/docker-login.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\":\"jackcoelho\",\"password\":\"${DOCKER_PASSWORD}\"}" \
+            https://hub.docker.com/v2/users/login/)"
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Docker Hub rejected the token (HTTP ${http_code}). Create a new access token at https://hub.docker.com/settings/security with Read & Write permissions, then update the DOCKER_PASSWORD secret."
+            cat /tmp/docker-login.json
+            exit 1
+          fi
+          echo "Docker Hub credentials validated."
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: jackcoelho
+          password: ${{ env.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
