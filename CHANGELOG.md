@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/fcjack/GameTracker/compare/v0.2.0...v0.2.1) (2026-06-10)
+
+
+### Performance Improvements
+
+* paginate library grid and serve built assets locally ([57cdd7b](https://github.com/fcjack/GameTracker/commit/57cdd7bf72ac170be27c9eeb2f7b4f0865412afa))
+
 ## [0.2.0](https://github.com/fcjack/GameTracker/compare/v0.1.1...v0.2.0) (2026-06-10)
 
 
