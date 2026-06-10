@@ -87,13 +87,41 @@ jobs:
             type=sha,prefix=
             type=raw,value=latest,enable={{is_default_branch}}
 
+      - name: Prepare Docker Hub token
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          RAW_TOKEN: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          if [ -z "$RAW_TOKEN" ]; then
+            echo "::error::DOCKER_PASSWORD secret is missing. Add a Docker Hub access token to repository secrets."
+            exit 1
+          fi
+          TOKEN="$(printf '%s' "$RAW_TOKEN" | tr -d '\n\r' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          echo "::add-mask::${TOKEN}"
+          echo "DOCKER_PASSWORD=${TOKEN}" >> "$GITHUB_ENV"
+
+      - name: Validate Docker Hub credentials
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          DOCKER_PASSWORD: ${{ env.DOCKER_PASSWORD }}
+        run: |
+          http_code="$(curl -s -o /tmp/docker-login.json -w '%{http_code}' \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\":\"jackcoelho\",\"password\":\"${DOCKER_PASSWORD}\"}" \
+            https://hub.docker.com/v2/users/login/)"
+          if [ "$http_code" != "200" ]; then
+            echo "::error::Docker Hub rejected the token (HTTP ${http_code}). Create a new access token at https://hub.docker.com/settings/security with Read & Write permissions, then update the DOCKER_PASSWORD secret."
+            cat /tmp/docker-login.json
+            exit 1
+          fi
+          echo "Docker Hub credentials validated."
+
       - name: Log in to Docker Hub
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
           username: jackcoelho
-          password: ${{ secrets.DOCKER_PASSWORD }}
+          password: ${{ env.DOCKER_PASSWORD }}
 
       - name: Build and push image
         uses: docker/build-push-action@v6
