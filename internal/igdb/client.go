@@ -33,8 +33,8 @@ type Client struct {
 	accessToken string
 	tokenExpiry time.Time
 
-	rateMu       sync.Mutex
-	lastRequest  time.Time
+	rateMu      sync.Mutex
+	lastRequest time.Time
 }
 
 type tokenResponse struct {

@@ -196,4 +196,3 @@ func (h *AuthHandler) DashboardStats(c *gin.Context) {
 		"years": dashboardYearOptions(c.Request.Context(), h.db, userID),
 	})
 }
-
