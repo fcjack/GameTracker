@@ -10,7 +10,7 @@ A self-hosted personal game tracking application to manage and track gaming prog
 
 ## Overview
 
-Helios Gaming tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, search IGDB for games, track your gaming progress, and manage your personal backlog without any social features or third-party dependencies.
+Helios Gaming tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, search IGDB to add new games from the dashboard, filter your existing collection on the library page, track your gaming progress, and manage your personal backlog without any social features or third-party dependencies.
 
 ---
 
@@ -30,11 +30,12 @@ Helios Gaming tracker is a lightweight web application built with Go that allows
 
 ### Core
 - Import game library from Steam and Xbox
-- Search IGDB and add games to your library
+- Search IGDB from the dashboard and add games to your library
+- Search your imported library by name or platform on the library page
 - Choose platform when adding multi-platform games
 - Track game status (Playing, Completed, Dropped, Backlog)
 - Dashboard with live stats and library management
-- Group library by platform
+- Group library by platform or completion year
 
 ### PWA
 - Mobile-first responsive design
@@ -49,7 +50,7 @@ Helios Gaming tracker is a lightweight web application built with Go that allows
 |-----|---------|
 | **Steam API** | Game library import |
 | **Xbox API** | Game library import |
-| **IGDB API** | Game search and metadata |
+| **IGDB API** | Dashboard game search and metadata when adding titles |
 
 ---
 

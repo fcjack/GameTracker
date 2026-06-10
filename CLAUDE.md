@@ -46,8 +46,11 @@ Copy `.env.example` to `.env`. Required variables:
 - Sets up cookie-based sessions (`gin-contrib/sessions`), then registers routes
 
 **Routes:**
-- Public: `GET/POST /login`, `GET/POST /register`, `POST /logout`
-- Protected by `handlers.AuthRequired()`: `GET /` (dashboard)
+- Public: `GET /`, `GET/POST /login`, `GET/POST /register`, `POST /logout`
+- Protected by `handlers.AuthRequired()`:
+  - Dashboard: `GET /dashboard`, `GET /dashboard/stats`
+  - Library: `GET /library`, `GET /library/games`, `GET /library/search` (search user's imported games), `GET /library/search/igdb` (IGDB search — dashboard only), `POST /library/games`, `DELETE /library/games/:game_id`, status/complete endpoints
+  - Profile, Steam auth/import endpoints
 
 **Internal packages:**
 
@@ -57,7 +60,8 @@ Copy `.env.example` to `.env`. Required variables:
 - `internal/models/` — domain structs and DB query functions together (no separate repository layer); handlers pass `db *pgxpool.Pool` into model functions directly
   - `user.go` — User struct, `CreateUser()`, `GetUserByUsername()`, `CheckPassword()`
   - `linked_account.go` — LinkedAccount struct, `UpsertLinkedAccount()`, `GetLinkedAccount()`, `DeleteLinkedAccount()`, `ListLinkedAccounts()`
-- `internal/handlers/` — Gin handlers; `AuthHandler` holds `db`; `middleware.go` contains `AuthRequired()`
+  - `game.go` — Game/UserGame structs, `FindOrCreateGame()`, `ListUserGames()`, `SearchUserGames()`, `AddToLibrary()`, status helpers
+- `internal/handlers/` — Gin handlers; `LibraryHandler` holds `db` + `igdb.Client`; `middleware.go` contains `AuthRequired()`
 
 **Templates** (`templates/`):
 - Each `.html` file wraps its content in `{{define "folder/filename"}}...{{end}}` (e.g. `templates/auth/login.html` → `{{define "auth/login"}}`)
@@ -78,13 +82,16 @@ Copy `.env.example` to `.env`. Required variables:
 **Tables:**
 - `users` — user accounts with bcrypt-hashed passwords
 - `linked_accounts` — external provider identities (Steam, Xbox) with encrypted access/refresh tokens; UNIQUE(user_id, provider); supports upsert on re-auth
+- `games` — canonical game records (IGDB id, Steam app id, metadata)
+- `user_games` — per-user library entries with status, platform, completion/dropped dates; UNIQUE(user_id, game_id)
+- `categories` — IGDB game categories
 - `schema_migrations` — applied migration tracking
 
 ## External APIs
 
 | API | Purpose | Status |
 |-----|---------|--------|
-| Steam OpenID 2.0 | Link Steam account, get SteamID64 | Next: implement callback handler + UpsertLinkedAccount |
-| Steam Web API | Import game library via encrypted SteamID | Planned |
+| Steam OpenID 2.0 | Link Steam account, get SteamID64 | Implemented |
+| Steam Web API | Import game library via encrypted SteamID | Implemented |
 | Xbox Live API (OAuth2) | Link Xbox account, get tokens | Planned |
-| IGDB API | Game metadata (cover art, genres) | Planned |
+| IGDB API | Dashboard search + metadata when adding/importing games | Implemented |
