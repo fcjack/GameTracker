@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o game-tracker cmd/main.go
 
-FROM node:22-alpine AS assets
+FROM node:26-alpine AS assets
 
 WORKDIR /app
 
