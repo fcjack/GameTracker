@@ -99,6 +99,77 @@ func (h *ImportHandler) ClearSteamLibrary(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?steam_cleared=%d", removed))
 }
 
+func (h *ImportHandler) UnlinkSteamAccount(c *gin.Context) {
+	h.unlinkAccount(c, "steam")
+}
+
+func (h *ImportHandler) UnlinkXboxAccount(c *gin.Context) {
+	h.unlinkAccount(c, "xbox")
+}
+
+func (h *ImportHandler) unlinkAccount(c *gin.Context, provider string) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	fail := func(errorKey string) {
+		c.Redirect(http.StatusSeeOther, "/profile?error="+errorKey)
+	}
+
+	active, err := models.HasActiveImportJob(c.Request.Context(), h.db, userID, provider)
+	if err != nil {
+		fail(unlinkFailedErrorKey(provider))
+		return
+	}
+	if active {
+		fail("error.import_in_progress")
+		return
+	}
+
+	_, err = models.GetLinkedAccount(c.Request.Context(), h.db, userID, provider)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			fail(notLinkedErrorKey(provider))
+			return
+		}
+		fail(unlinkFailedErrorKey(provider))
+		return
+	}
+
+	switch provider {
+	case "steam":
+		if _, err = models.RemoveSteamGamesFromLibrary(c.Request.Context(), h.db, userID); err != nil {
+			fail("error.unlink_steam_failed")
+			return
+		}
+	case "xbox":
+		if _, err = models.RemoveXboxGamesFromLibrary(c.Request.Context(), h.db, userID); err != nil {
+			fail("error.unlink_xbox_failed")
+			return
+		}
+	}
+
+	if err := models.DeleteLinkedAccount(c.Request.Context(), h.db, userID, provider); err != nil {
+		fail(unlinkFailedErrorKey(provider))
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?%s_unlinked=1", provider))
+}
+
+func notLinkedErrorKey(provider string) string {
+	if provider == "xbox" {
+		return "error.xbox_not_linked"
+	}
+	return "error.steam_not_linked"
+}
+
+func unlinkFailedErrorKey(provider string) string {
+	if provider == "xbox" {
+		return "error.unlink_xbox_failed"
+	}
+	return "error.unlink_steam_failed"
+}
+
 func (h *ImportHandler) CancelSteamImport(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)

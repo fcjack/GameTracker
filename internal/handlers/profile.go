@@ -110,6 +110,8 @@ func (h *ProfileHandler) profileTemplateBase(c *gin.Context, userID int64, usern
 		"localeSuccess":   c.Query("locale_success") == "1",
 		"steamCleared":    steamCleared,
 		"xboxCleared":     xboxCleared,
+		"steamUnlinked":   c.Query("steam_unlinked") == "1",
+		"xboxUnlinked":    c.Query("xbox_unlinked") == "1",
 	}
 }
 
