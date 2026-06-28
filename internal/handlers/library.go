@@ -26,6 +26,7 @@ type libraryGameCard struct {
 	*models.UserGameWithGame
 	ShowPlatform        bool
 	NeedsCompletionYear bool
+	PlaytimeLabel       string
 	CurrentYear         int
 	Lang                string
 	T                   func(string, ...any) string
@@ -38,7 +39,7 @@ type libraryGameGroup struct {
 
 func toLibraryCardWithLocale(locale string, g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
 	currentYear := time.Now().Year()
-	return libraryGameCard{
+	card := libraryGameCard{
 		UserGameWithGame:    g,
 		ShowPlatform:        showPlatform,
 		CurrentYear:         currentYear,
@@ -46,6 +47,10 @@ func toLibraryCardWithLocale(locale string, g *models.UserGameWithGame, showPlat
 		Lang:                locale,
 		T:                   i18n.NewTranslator(locale),
 	}
+	if g.PlaytimeMinutes != nil {
+		card.PlaytimeLabel = i18n.FormatPlaytime(locale, *g.PlaytimeMinutes)
+	}
+	return card
 }
 
 func toLibraryCard(c *gin.Context, g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
@@ -348,7 +353,7 @@ func (h *LibraryHandler) AddGame(c *gin.Context) {
 		return
 	}
 
-	if err := models.AddToLibrary(c.Request.Context(), h.db, userID, game.ID, platform); err != nil {
+	if err := models.AddToLibrary(c.Request.Context(), h.db, userID, game.ID, platform, nil); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to add to library"})
 		return
 	}

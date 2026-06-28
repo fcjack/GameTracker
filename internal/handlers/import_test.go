@@ -113,7 +113,7 @@ func TestClearSteamLibrarySuccess(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
 	}
-	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Steam"); err != nil {
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Steam", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 

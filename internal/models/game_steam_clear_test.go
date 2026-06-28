@@ -31,10 +31,10 @@ func TestRemoveSteamGamesFromLibrary(t *testing.T) {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
 
-	if err := AddToLibrary(ctx, db, user.ID, steamGame.ID, "Steam"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, steamGame.ID, "Steam", nil); err != nil {
 		t.Fatalf("AddToLibrary(steam) error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, manualGame.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, manualGame.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary(manual) error = %v", err)
 	}
 

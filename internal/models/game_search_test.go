@@ -28,7 +28,7 @@ func TestSearchUserGames_matchesByName(t *testing.T) {
 		if err != nil {
 			t.Fatalf("FindOrCreateGame() error = %v", err)
 		}
-		if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+		if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 			t.Fatalf("AddToLibrary() error = %v", err)
 		}
 	}
@@ -65,7 +65,7 @@ func TestSearchUserGames_matchesByPlatform(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "Nintendo Switch"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "Nintendo Switch", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 
@@ -101,7 +101,7 @@ func TestSearchUserGames_caseInsensitive(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 
@@ -138,7 +138,7 @@ func TestSearchUserGames_excludesOtherUsers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, owner.ID, game.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, owner.ID, game.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 
@@ -171,7 +171,7 @@ func TestSearchUserGames_noMatch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 

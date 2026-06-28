@@ -21,8 +21,8 @@ func TestGetOwnedGames(t *testing.T) {
 			"response": map[string]any{
 				"game_count": 2,
 				"games": []map[string]any{
-					{"appid": 730, "name": "Counter-Strike 2"},
-					{"appid": 570, "name": "Dota 2"},
+					{"appid": 730, "name": "Counter-Strike 2", "playtime_forever": 45},
+					{"appid": 570, "name": "Dota 2", "playtime_forever": 8520},
 				},
 			},
 		})
@@ -42,8 +42,11 @@ func TestGetOwnedGames(t *testing.T) {
 	if len(games) != 2 {
 		t.Fatalf("GetOwnedGames() returned %d games, want 2", len(games))
 	}
-	if games[0].AppID != 730 || games[0].Name != "Counter-Strike 2" {
-		t.Errorf("first game = %+v, want CS2", games[0])
+	if games[0].AppID != 730 || games[0].Name != "Counter-Strike 2" || games[0].PlaytimeForever != 45 {
+		t.Errorf("first game = %+v, want CS2 with 45 min playtime", games[0])
+	}
+	if games[1].PlaytimeForever != 8520 {
+		t.Errorf("second game playtime = %d, want 8520", games[1].PlaytimeForever)
 	}
 }
 

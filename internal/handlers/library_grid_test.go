@@ -47,7 +47,7 @@ func TestLibraryGridRendersAllGames(t *testing.T) {
 		if err != nil {
 			t.Fatalf("FindOrCreateGame() error = %v", err)
 		}
-		if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+		if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 			t.Fatalf("AddToLibrary() error = %v", err)
 		}
 	}

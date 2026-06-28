@@ -27,7 +27,7 @@ func TestRemoveFromLibrary_softDeletes(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "Steam"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "Steam", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 
@@ -88,14 +88,14 @@ func TestAddToLibrary_restoresSoftDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGame() error = %v", err)
 	}
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 	if err := RemoveFromLibrary(ctx, db, user.ID, game.ID); err != nil {
 		t.Fatalf("RemoveFromLibrary() error = %v", err)
 	}
 
-	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC"); err != nil {
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
 		t.Fatalf("AddToLibrary() restore error = %v", err)
 	}
 

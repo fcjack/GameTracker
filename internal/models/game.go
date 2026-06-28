@@ -30,29 +30,31 @@ type Game struct {
 }
 
 type UserGame struct {
-	UserID      int64
-	GameID      int64
-	Status      string
-	Tags        []string
-	CompletedAt *time.Time
-	DroppedAt   *time.Time
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	UserID          int64
+	GameID          int64
+	Status          string
+	Tags            []string
+	PlaytimeMinutes *int
+	CompletedAt     *time.Time
+	DroppedAt       *time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
 }
 
 type UserGameWithGame struct {
-	GameID       int64
-	IGDBId       *int64
-	Name         string
-	CoverURL     string
-	Platform     string
-	ReleaseYear  int
-	CategoryName string
-	Status       string
-	Tags         []string
-	CompletedAt  *time.Time
-	DroppedAt    *time.Time
-	AddedAt      time.Time
+	GameID          int64
+	IGDBId          *int64
+	Name            string
+	CoverURL        string
+	Platform        string
+	ReleaseYear     int
+	CategoryName    string
+	Status          string
+	Tags            []string
+	PlaytimeMinutes *int
+	CompletedAt     *time.Time
+	DroppedAt       *time.Time
+	AddedAt         time.Time
 }
 
 type GamesByPlatform struct {
@@ -377,17 +379,34 @@ func LinkIGDBToSteamGame(
 	return &g, err
 }
 
-func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, platform string) error {
+func AddToLibrary(ctx context.Context, db *pgxpool.Pool, userID, gameID int64, platform string, playtimeMinutes *int) error {
 	const query = `
-		INSERT INTO user_games (user_id, game_id, platform, status, tags, created_at, updated_at)
-		VALUES ($1, $2, $3, 'owned', '{}', NOW(), NOW())
+		INSERT INTO user_games (user_id, game_id, platform, status, tags, playtime_minutes, created_at, updated_at)
+		VALUES ($1, $2, $3, 'owned', '{}', $4, NOW(), NOW())
 		ON CONFLICT (user_id, game_id) DO UPDATE
 		SET deleted_at = NULL,
 		    platform = EXCLUDED.platform,
+		    playtime_minutes = COALESCE(EXCLUDED.playtime_minutes, user_games.playtime_minutes),
 		    updated_at = NOW()
 		WHERE user_games.deleted_at IS NOT NULL
 	`
-	_, err := db.Exec(ctx, query, userID, gameID, platform)
+	_, err := db.Exec(ctx, query, userID, gameID, platform, playtimeMinutes)
+	return err
+}
+
+// UpdatePlaytimeBySteamAppID sets playtime for an active library entry matched by Steam app ID.
+func UpdatePlaytimeBySteamAppID(ctx context.Context, db *pgxpool.Pool, userID int64, platform string, appID, minutes int) error {
+	const query = `
+		UPDATE user_games ug
+		SET playtime_minutes = $4, updated_at = NOW()
+		FROM games g
+		WHERE ug.game_id = g.id
+		  AND ug.user_id = $1
+		  AND ug.platform = $2
+		  AND g.steam_app_id = $3
+		  AND ug.deleted_at IS NULL
+	`
+	_, err := db.Exec(ctx, query, userID, platform, appID, minutes)
 	return err
 }
 
@@ -396,7 +415,7 @@ func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query 
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+			ug.status, ug.tags, ug.playtime_minutes, ug.completed_at, ug.dropped_at, ug.created_at
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
@@ -421,7 +440,7 @@ func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query 
 		err := rows.Scan(
 			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
 			&ug.ReleaseYear, &ug.CategoryName,
-			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+			&ug.Status, &ug.Tags, &ug.PlaytimeMinutes, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -440,7 +459,7 @@ func scanUserGamesWithGame(rows pgx.Rows) ([]*UserGameWithGame, error) {
 		err := rows.Scan(
 			&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
 			&ug.ReleaseYear, &ug.CategoryName,
-			&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+			&ug.Status, &ug.Tags, &ug.PlaytimeMinutes, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
 		)
 		if err != nil {
 			return nil, err
@@ -461,7 +480,7 @@ func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limi
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+			ug.status, ug.tags, ug.playtime_minutes, ug.completed_at, ug.dropped_at, ug.created_at
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
@@ -487,7 +506,7 @@ func ListUserGamesByStatusesPage(ctx context.Context, db *pgxpool.Pool, userID i
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+			ug.status, ug.tags, ug.playtime_minutes, ug.completed_at, ug.dropped_at, ug.created_at
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
@@ -507,7 +526,7 @@ func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
 			g.release_year, c.name AS category_name,
-			ug.status, ug.tags, ug.completed_at, ug.dropped_at, ug.created_at
+			ug.status, ug.tags, ug.playtime_minutes, ug.completed_at, ug.dropped_at, ug.created_at
 		FROM user_games ug
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
@@ -517,7 +536,7 @@ func GetUserGame(ctx context.Context, db *pgxpool.Pool, userID, gameID int64) (*
 	err := db.QueryRow(ctx, query, userID, gameID).Scan(
 		&ug.GameID, &ug.IGDBId, &ug.Name, &ug.CoverURL, &ug.Platform,
 		&ug.ReleaseYear, &ug.CategoryName,
-		&ug.Status, &ug.Tags, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
+		&ug.Status, &ug.Tags, &ug.PlaytimeMinutes, &ug.CompletedAt, &ug.DroppedAt, &ug.AddedAt,
 	)
 	if err != nil {
 		return nil, err

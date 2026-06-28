@@ -143,6 +143,14 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 
 		if _, exists := alreadyImported[g.AppID]; exists {
 			skipped++
+			if err := models.UpdatePlaytimeBySteamAppID(ctx, s.db, userID, steamPlatform, g.AppID, g.PlaytimeForever); err != nil {
+				slog.Warn("import job playtime update failed",
+					"provider", provider,
+					"job_id", jobID,
+					"app_id", g.AppID,
+					"error", err,
+				)
+			}
 			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
 				slog.Warn("import job progress update failed",
 					"provider", provider,
@@ -312,7 +320,7 @@ func (s *Service) persistIGDBGame(ctx context.Context, userID int64, g steam.Own
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, g.PlaytimeForever)
 }
 
 func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam.OwnedGame) (bool, error) {
@@ -333,7 +341,7 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID)
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, g.PlaytimeForever)
 }
 
 func (s *Service) fetchCover(ctx context.Context, gameID int64) {
@@ -346,7 +354,7 @@ func (s *Service) fetchCover(ctx context.Context, gameID int64) {
 	}()
 }
 
-func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64) (bool, error) {
+func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64, playtimeMinutes int) (bool, error) {
 	exists, err := models.LibraryEntryExists(ctx, s.db, userID, gameID)
 	if err != nil {
 		return false, err
@@ -355,7 +363,8 @@ func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID i
 		return false, nil
 	}
 
-	if err := models.AddToLibrary(ctx, s.db, userID, gameID, steamPlatform); err != nil {
+	playtime := playtimeMinutes
+	if err := models.AddToLibrary(ctx, s.db, userID, gameID, steamPlatform, &playtime); err != nil {
 		return false, err
 	}
 	return true, nil

@@ -109,7 +109,11 @@ var enMessages = map[string]string{
 	"game.dropped":        "Dropped",
 	"game.when_finished":  "When did you finish %s?",
 	"game.confirm":        "Confirm",
-	"game.cancel":         "Cancel",
+	"game.cancel":                  "Cancel",
+	"game.playtime_minutes":        "%d min",
+	"game.playtime_hours":          "%d hr",
+	"game.playtime_hours_plural":   "%d hrs",
+	"game.playtime_hours_decimal":  "%.1f hrs",
 
 	"search.in_library":       "In Library",
 	"search.add_to_library":   "Add to Library",

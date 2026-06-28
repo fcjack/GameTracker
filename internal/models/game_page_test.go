@@ -23,7 +23,7 @@ func seedLibrary(t *testing.T, db *pgxpool.Pool, userID int64, igdbBase int64, n
 		if err != nil {
 			t.Fatalf("FindOrCreateGame() error = %v", err)
 		}
-		if err := AddToLibrary(ctx, db, userID, game.ID, "PC"); err != nil {
+		if err := AddToLibrary(ctx, db, userID, game.ID, "PC", nil); err != nil {
 			t.Fatalf("AddToLibrary() error = %v", err)
 		}
 		games = append(games, game)

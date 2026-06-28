@@ -37,8 +37,8 @@ func TestStartSteamImportImportsGames(t *testing.T) {
 			"response": map[string]any{
 				"game_count": 2,
 				"games": []map[string]any{
-					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon"},
-					{"appid": 99999, "name": "Unknown Game", "img_icon_url": "unknown_icon"},
+					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon", "playtime_forever": 150},
+					{"appid": 99999, "name": "Unknown Game", "img_icon_url": "unknown_icon", "playtime_forever": 45},
 				},
 			},
 		})
@@ -131,6 +131,8 @@ func TestStartSteamImportImportsGames(t *testing.T) {
 	}
 	if dota := byName["Dota 2"]; dota == nil || dota.Platform != "Steam" || dota.IGDBId == nil {
 		t.Errorf("Dota 2 = %+v, want Steam platform with IGDB id", dota)
+	} else if dota.PlaytimeMinutes == nil || *dota.PlaytimeMinutes != 150 {
+		t.Errorf("Dota 2 playtime = %v, want 150", dota.PlaytimeMinutes)
 	}
 	if unknown := byName["Unknown Game"]; unknown == nil || unknown.Platform != "Steam" {
 		t.Errorf("Unknown Game = %+v, want Steam platform", unknown)
@@ -138,6 +140,8 @@ func TestStartSteamImportImportsGames(t *testing.T) {
 		t.Errorf("Unknown Game igdb_id = %v, want nil", *unknown.IGDBId)
 	} else if unknown.CoverURL == "" {
 		t.Error("Unknown Game cover_url should use Steam CDN")
+	} else if unknown.PlaytimeMinutes == nil || *unknown.PlaytimeMinutes != 45 {
+		t.Errorf("Unknown Game playtime = %v, want 45", unknown.PlaytimeMinutes)
 	}
 }
 
@@ -152,7 +156,7 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 			"response": map[string]any{
 				"game_count": 1,
 				"games": []map[string]any{
-					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon"},
+					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon", "playtime_forever": 8520},
 				},
 			},
 		})
@@ -190,7 +194,7 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
 	}
-	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Steam"); err != nil {
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Steam", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 
@@ -227,6 +231,9 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 	if len(games) != 1 {
 		t.Fatalf("library count = %d, want 1", len(games))
 	}
+	if games[0].PlaytimeMinutes == nil || *games[0].PlaytimeMinutes != 8520 {
+		t.Fatalf("playtime after re-sync = %v, want 8520", games[0].PlaytimeMinutes)
+	}
 }
 
 func TestStartSteamImportSkipsSoftDeleted(t *testing.T) {
@@ -240,7 +247,7 @@ func TestStartSteamImportSkipsSoftDeleted(t *testing.T) {
 			"response": map[string]any{
 				"game_count": 1,
 				"games": []map[string]any{
-					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon"},
+					{"appid": 570, "name": "Dota 2", "img_icon_url": "dota_icon", "playtime_forever": 8520},
 				},
 			},
 		})
@@ -278,7 +285,7 @@ func TestStartSteamImportSkipsSoftDeleted(t *testing.T) {
 	if err != nil {
 		t.Fatalf("FindOrCreateGameBySteamAppID() error = %v", err)
 	}
-	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Steam"); err != nil {
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Steam", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
 	}
 	if err := models.RemoveFromLibrary(ctx, db, user.ID, existing.ID); err != nil {

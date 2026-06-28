@@ -17,9 +17,10 @@ type Client struct {
 }
 
 type OwnedGame struct {
-	AppID      int    `json:"appid"`
-	Name       string `json:"name"`
-	ImgIconURL string `json:"img_icon_url"`
+	AppID           int    `json:"appid"`
+	Name            string `json:"name"`
+	ImgIconURL      string `json:"img_icon_url"`
+	PlaytimeForever int    `json:"playtime_forever"`
 }
 
 // CoverImageURL returns a Steam CDN library capsule suitable for library cards.
