@@ -95,6 +95,8 @@ var enMessages = map[string]string{
 	"library.no_active_hint":     "Games you're playing or have completed appear here. Backlog and dropped games are on the full library page.",
 	"library.group_by":           "Group by",
 	"library.all_games":          "All games",
+	"library.filter_by":          "Filter by",
+	"library.all_platforms":      "All platforms",
 	"library.group_platform":     "Platform",
 	"library.group_year":         "Year",
 	"library.group_active":       "Active",

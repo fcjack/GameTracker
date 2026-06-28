@@ -95,6 +95,8 @@ var ptBRMessages = map[string]string{
 	"library.no_active_hint":     "Jogos em andamento ou concluídos aparecem aqui. Backlog e abandonados estão na biblioteca completa.",
 	"library.group_by":           "Agrupar por",
 	"library.all_games":          "Todos os jogos",
+	"library.filter_by":          "Filtrar por",
+	"library.all_platforms":      "Todas as plataformas",
 	"library.group_platform":     "Plataforma",
 	"library.group_year":         "Ano",
 	"library.group_active":       "Ativos",

@@ -45,7 +45,7 @@ func TestListUserGamesPage_paginates(t *testing.T) {
 	names := []string{"Game A", "Game B", "Game C", "Game D", "Game E"}
 	seedLibrary(t, db, user.ID, 96000, names)
 
-	page1, err := ListUserGamesPage(ctx, db, user.ID, 2, 0)
+	page1, err := ListUserGamesPage(ctx, db, user.ID, 2, 0, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesPage(page 1) error = %v", err)
 	}
@@ -53,7 +53,7 @@ func TestListUserGamesPage_paginates(t *testing.T) {
 		t.Fatalf("page 1 returned %d games, want 2", len(page1))
 	}
 
-	page2, err := ListUserGamesPage(ctx, db, user.ID, 2, 2)
+	page2, err := ListUserGamesPage(ctx, db, user.ID, 2, 2, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesPage(page 2) error = %v", err)
 	}
@@ -61,7 +61,7 @@ func TestListUserGamesPage_paginates(t *testing.T) {
 		t.Fatalf("page 2 returned %d games, want 2", len(page2))
 	}
 
-	page3, err := ListUserGamesPage(ctx, db, user.ID, 2, 4)
+	page3, err := ListUserGamesPage(ctx, db, user.ID, 2, 4, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesPage(page 3) error = %v", err)
 	}
@@ -69,7 +69,7 @@ func TestListUserGamesPage_paginates(t *testing.T) {
 		t.Fatalf("page 3 returned %d games, want 1", len(page3))
 	}
 
-	beyond, err := ListUserGamesPage(ctx, db, user.ID, 2, 6)
+	beyond, err := ListUserGamesPage(ctx, db, user.ID, 2, 6, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesPage(beyond) error = %v", err)
 	}
@@ -103,7 +103,7 @@ func TestListUserGamesPage_zeroLimitReturnsAll(t *testing.T) {
 
 	seedLibrary(t, db, user.ID, 96100, []string{"One", "Two", "Three"})
 
-	all, err := ListUserGamesPage(ctx, db, user.ID, 0, 0)
+	all, err := ListUserGamesPage(ctx, db, user.ID, 0, 0, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesPage() error = %v", err)
 	}
@@ -130,7 +130,7 @@ func TestListUserGamesByStatusesPage_paginates(t *testing.T) {
 		}
 	}
 
-	page1, err := ListUserGamesByStatusesPage(ctx, db, user.ID, []string{"playing"}, 2, 0)
+	page1, err := ListUserGamesByStatusesPage(ctx, db, user.ID, []string{"playing"}, 2, 0, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesByStatusesPage(page 1) error = %v", err)
 	}
@@ -138,7 +138,7 @@ func TestListUserGamesByStatusesPage_paginates(t *testing.T) {
 		t.Fatalf("page 1 returned %d games, want 2", len(page1))
 	}
 
-	page2, err := ListUserGamesByStatusesPage(ctx, db, user.ID, []string{"playing"}, 2, 2)
+	page2, err := ListUserGamesByStatusesPage(ctx, db, user.ID, []string{"playing"}, 2, 2, "")
 	if err != nil {
 		t.Fatalf("ListUserGamesByStatusesPage(page 2) error = %v", err)
 	}
@@ -150,6 +150,68 @@ func TestListUserGamesByStatusesPage_paginates(t *testing.T) {
 		if g.Status != "playing" {
 			t.Fatalf("game %d has status %q, want playing", g.GameID, g.Status)
 		}
+	}
+}
+
+func TestListUserGamesPage_filtersByPlatform(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := CreateUser(ctx, db, fmt.Sprintf("platform_filter_%d", time.Now().UnixNano()), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+
+	for i, tc := range []struct {
+		name     string
+		igdbID   int64
+		platform string
+	}{
+		{"Steam Game", 97000, "Steam"},
+		{"Xbox Game", 97001, "Xbox"},
+		{"Another Steam", 97002, "Steam"},
+	} {
+		game, err := FindOrCreateGame(ctx, db, tc.igdbID, tc.name, "", 2020, []string{tc.platform}, cat.ID)
+		if err != nil {
+			t.Fatalf("FindOrCreateGame(%d) error = %v", i, err)
+		}
+		if err := AddToLibrary(ctx, db, user.ID, game.ID, tc.platform, nil); err != nil {
+			t.Fatalf("AddToLibrary(%d) error = %v", i, err)
+		}
+	}
+
+	platforms, err := ListUserPlatforms(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserPlatforms() error = %v", err)
+	}
+	if len(platforms) != 2 {
+		t.Fatalf("ListUserPlatforms() returned %d platforms, want 2: %v", len(platforms), platforms)
+	}
+
+	steamGames, err := ListUserGamesPage(ctx, db, user.ID, 0, 0, "Steam")
+	if err != nil {
+		t.Fatalf("ListUserGamesPage(Steam) error = %v", err)
+	}
+	if len(steamGames) != 2 {
+		t.Fatalf("Steam filter returned %d games, want 2", len(steamGames))
+	}
+
+	xboxGames, err := ListUserGamesPage(ctx, db, user.ID, 0, 0, "Xbox")
+	if err != nil {
+		t.Fatalf("ListUserGamesPage(Xbox) error = %v", err)
+	}
+	if len(xboxGames) != 1 {
+		t.Fatalf("Xbox filter returned %d games, want 1", len(xboxGames))
+	}
+	if xboxGames[0].Name != "Xbox Game" {
+		t.Errorf("Xbox filter name = %q, want Xbox Game", xboxGames[0].Name)
 	}
 }
 

@@ -471,12 +471,37 @@ func scanUserGamesWithGame(rows pgx.Rows) ([]*UserGameWithGame, error) {
 }
 
 func ListUserGames(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*UserGameWithGame, error) {
-	return ListUserGamesPage(ctx, db, userID, 0, 0)
+	return ListUserGamesPage(ctx, db, userID, 0, 0, "")
+}
+
+// ListUserPlatforms returns distinct platforms in the user's library, sorted alphabetically.
+func ListUserPlatforms(ctx context.Context, db *pgxpool.Pool, userID int64) ([]string, error) {
+	const query = `
+		SELECT DISTINCT ug.platform
+		FROM user_games ug
+		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL AND ug.platform <> ''
+		ORDER BY ug.platform ASC
+	`
+	rows, err := db.Query(ctx, query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var platforms []string
+	for rows.Next() {
+		var platform string
+		if err := rows.Scan(&platform); err != nil {
+			return nil, err
+		}
+		platforms = append(platforms, platform)
+	}
+	return platforms, rows.Err()
 }
 
 // ListUserGamesPage returns one page of the user's library ordered by most
-// recently added. A limit of 0 returns all games.
-func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limit, offset int) ([]*UserGameWithGame, error) {
+// recently added. A limit of 0 returns all games. An empty platform returns all platforms.
+func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limit, offset int, platform string) ([]*UserGameWithGame, error) {
 	const query = `
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
@@ -486,10 +511,11 @@ func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limi
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
 		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL
+		  AND ($4 = '' OR ug.platform = $4)
 		ORDER BY ug.created_at DESC, g.id DESC
 		LIMIT NULLIF($2, 0) OFFSET $3
 	`
-	rows, err := db.Query(ctx, query, userID, limit, offset)
+	rows, err := db.Query(ctx, query, userID, limit, offset, platform)
 	if err != nil {
 		return nil, err
 	}
@@ -497,12 +523,13 @@ func ListUserGamesPage(ctx context.Context, db *pgxpool.Pool, userID int64, limi
 }
 
 func ListUserGamesByStatuses(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string) ([]*UserGameWithGame, error) {
-	return ListUserGamesByStatusesPage(ctx, db, userID, statuses, 0, 0)
+	return ListUserGamesByStatusesPage(ctx, db, userID, statuses, 0, 0, "")
 }
 
 // ListUserGamesByStatusesPage returns one page of the user's library filtered
 // by status, ordered by most recently updated. A limit of 0 returns all games.
-func ListUserGamesByStatusesPage(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string, limit, offset int) ([]*UserGameWithGame, error) {
+// An empty platform returns all platforms.
+func ListUserGamesByStatusesPage(ctx context.Context, db *pgxpool.Pool, userID int64, statuses []string, limit, offset int, platform string) ([]*UserGameWithGame, error) {
 	const query = `
 		SELECT
 			g.id, g.igdb_id, g.name, g.cover_url, ug.platform,
@@ -512,10 +539,11 @@ func ListUserGamesByStatusesPage(ctx context.Context, db *pgxpool.Pool, userID i
 		JOIN games g     ON g.id = ug.game_id
 		JOIN categories c ON c.id = g.category_id
 		WHERE ug.user_id = $1 AND ug.deleted_at IS NULL AND ug.status = ANY($2)
+		  AND ($5 = '' OR ug.platform = $5)
 		ORDER BY ug.updated_at DESC, g.id DESC
 		LIMIT NULLIF($3, 0) OFFSET $4
 	`
-	rows, err := db.Query(ctx, query, userID, statuses, limit, offset)
+	rows, err := db.Query(ctx, query, userID, statuses, limit, offset, platform)
 	if err != nil {
 		return nil, err
 	}

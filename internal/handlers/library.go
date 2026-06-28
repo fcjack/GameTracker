@@ -118,23 +118,29 @@ func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandle
 
 func (h *LibraryHandler) LibraryPage(c *gin.Context) {
 	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
 	username := session.Get("username").(string)
 
-	// The grid loads its own data via HTMX (GET /library/games), so the
-	// page shell renders without touching the database.
+	platforms, _ := models.ListUserPlatforms(c.Request.Context(), h.db, userID)
+
+	// The grid loads its own data via HTMX (GET /library/games).
 	c.HTML(http.StatusOK, "library/index", ViewData(c, gin.H{
 		"username":  username,
 		"activeNav": "library",
+		"platforms": platforms,
 	}))
 }
 
 const libraryPageSize = 30
 
-func nextLibraryPageURL(page int, filter string) string {
+func nextLibraryPageURL(page int, filter, platform string) string {
 	q := url.Values{}
 	q.Set("page", strconv.Itoa(page))
 	if filter != "" {
 		q.Set("filter", filter)
+	}
+	if platform != "" {
+		q.Set("platform", platform)
 	}
 	return "/library/games?" + q.Encode()
 }
@@ -145,6 +151,7 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 
 	groupBy := c.Query("group_by")
 	filter := c.Query("filter")
+	platform := c.Query("platform")
 	statuses := []string{"playing", "completed"}
 
 	page, _ := strconv.Atoi(c.Query("page"))
@@ -159,17 +166,17 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 	if groupBy == "platform" || groupBy == "year" {
 		// Grouped views need the full library; pagination applies to the flat grid only.
 		if filter == "active" {
-			games, err = models.ListUserGamesByStatuses(c.Request.Context(), h.db, userID, statuses)
+			games, err = models.ListUserGamesByStatusesPage(c.Request.Context(), h.db, userID, statuses, 0, 0, platform)
 		} else {
-			games, err = models.ListUserGames(c.Request.Context(), h.db, userID)
+			games, err = models.ListUserGamesPage(c.Request.Context(), h.db, userID, 0, 0, platform)
 		}
 	} else {
 		// Fetch one extra row to know whether another page exists.
 		offset := (page - 1) * libraryPageSize
 		if filter == "active" {
-			games, err = models.ListUserGamesByStatusesPage(c.Request.Context(), h.db, userID, statuses, libraryPageSize+1, offset)
+			games, err = models.ListUserGamesByStatusesPage(c.Request.Context(), h.db, userID, statuses, libraryPageSize+1, offset, platform)
 		} else {
-			games, err = models.ListUserGamesPage(c.Request.Context(), h.db, userID, libraryPageSize+1, offset)
+			games, err = models.ListUserGamesPage(c.Request.Context(), h.db, userID, libraryPageSize+1, offset, platform)
 		}
 		if len(games) > libraryPageSize {
 			games = games[:libraryPageSize]
@@ -189,7 +196,7 @@ func (h *LibraryHandler) LibraryGrid(c *gin.Context) {
 		data["emptyHint"] = "library.no_active_hint"
 	}
 	if hasMore {
-		data["nextPageURL"] = nextLibraryPageURL(page+1, filter)
+		data["nextPageURL"] = nextLibraryPageURL(page+1, filter, platform)
 	}
 	switch groupBy {
 	case "platform":

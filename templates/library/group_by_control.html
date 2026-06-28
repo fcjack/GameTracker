@@ -10,7 +10,7 @@
                    hx-get="{{$gridURL}}"
                    hx-target="#library-section"
                    hx-trigger="change"
-                   hx-include="[name='group_by']:checked">
+                   hx-include="[name='group_by']:checked, [name='platform']:checked">
             {{call .T "library.all_games"}}
         </label>
         <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm text-gray-300
@@ -19,7 +19,7 @@
                    hx-get="{{$gridURL}}"
                    hx-target="#library-section"
                    hx-trigger="change"
-                   hx-include="[name='group_by']:checked">
+                   hx-include="[name='group_by']:checked, [name='platform']:checked">
             {{call .T "library.group_platform"}}
         </label>
         <label class="cursor-pointer rounded-md px-3 py-1.5 text-sm text-gray-300
@@ -28,7 +28,7 @@
                    hx-get="{{$gridURL}}"
                    hx-target="#library-section"
                    hx-trigger="change"
-                   hx-include="[name='group_by']:checked">
+                   hx-include="[name='group_by']:checked, [name='platform']:checked">
             {{call .T "library.group_year"}}
         </label>
     </div>

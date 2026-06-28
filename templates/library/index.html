@@ -49,14 +49,17 @@
         </div>
 
         <div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
                 <h2 class="text-xl font-bold">{{call .T "library.my_library"}}</h2>
-                {{template "library/group_by_control" .}}
+                <div class="flex flex-col gap-3 sm:items-end">
+                    {{template "library/platform_filter_control" .}}
+                    {{template "library/group_by_control" .}}
+                </div>
             </div>
             <div id="library-section"
                  hx-get="/library/games"
                  hx-trigger="load, libraryUpdated from:body"
-                 hx-include="[name='group_by']:checked"
+                 hx-include="[name='group_by']:checked, [name='platform']:checked"
                  hx-swap="innerHTML"
                  class="min-h-[200px]">
                 {{call .T "library.loading_library"}}
