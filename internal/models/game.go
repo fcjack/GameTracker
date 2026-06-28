@@ -17,11 +17,11 @@ type Category struct {
 }
 
 type Game struct {
-	ID           int64
-	IGDBId       *int64
-	SteamAppID   *int
-	XboxTitleID  *int
-	CategoryID   int64
+	ID          int64
+	IGDBId      *int64
+	SteamAppID  *int
+	XboxTitleID *int
+	CategoryID  int64
 	Name        string
 	CoverURL    string
 	Platforms   []string
