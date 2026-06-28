@@ -426,8 +426,19 @@ func (h *LibraryHandler) CompleteGame(c *gin.Context) {
 		c.AbortWithStatus(http.StatusNotFound)
 		return
 	}
+	// Toggle off: an already-completed game returns to the backlog.
 	if game.Status == "completed" {
-		h.renderGameCard(c, game, showPlatformFromQuery(c))
+		if err := models.UpdateGameStatus(c.Request.Context(), h.db, userID, gameID, "owned"); err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		updated, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+		c.Header("HX-Trigger-After-Swap", "libraryUpdated")
+		h.renderGameCard(c, updated, showPlatformFromQuery(c))
 		return
 	}
 
@@ -484,7 +495,19 @@ func (h *LibraryHandler) setGameStatus(c *gin.Context, status string) {
 		return
 	}
 
-	if err := models.UpdateGameStatus(c.Request.Context(), h.db, userID, gameID, status); err != nil {
+	current, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	// Toggle off: clicking the active status returns the game to the backlog.
+	target := status
+	if current.Status == status {
+		target = "owned"
+	}
+
+	if err := models.UpdateGameStatus(c.Request.Context(), h.db, userID, gameID, target); err != nil {
 		c.AbortWithStatus(http.StatusInternalServerError)
 		return
 	}
