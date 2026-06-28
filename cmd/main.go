@@ -124,7 +124,7 @@ func main() {
 		os.Getenv("TWITCH_CLIENT_SECRET"),
 		igdbBaseURL,
 	)
-	importService := importjob.NewService(db, igdbClient)
+	importService := importjob.NewService(db, igdbClient, encrypter)
 
 	if config.LibrarySyncEnabled() {
 		interval := config.LibrarySyncInterval()

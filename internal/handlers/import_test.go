@@ -80,7 +80,7 @@ func TestSteamImportStatusNoJob(t *testing.T) {
 		t.Fatalf("CreateUser() error = %v", err)
 	}
 
-	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"))
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
 	h := NewImportHandler(db, svc)
 
 	router := newImportTestRouter(h)
@@ -159,7 +159,7 @@ func TestSteamImportStatusWithJob(t *testing.T) {
 		t.Fatalf("UpdateImportJobProgress() error = %v", err)
 	}
 
-	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"))
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
 	h := NewImportHandler(db, svc)
 
 	router := newImportTestRouter(h)

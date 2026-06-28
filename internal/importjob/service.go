@@ -9,36 +9,61 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jacksoncoelho/game-tracker/internal/cover"
+	"github.com/jacksoncoelho/game-tracker/internal/crypto"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 	"github.com/jacksoncoelho/game-tracker/internal/steam"
+	"github.com/jacksoncoelho/game-tracker/internal/xbox"
 )
 
 const steamPlatform = "Steam"
+const xboxPlatform = "Xbox"
 
 type Service struct {
-	db     *pgxpool.Pool
-	igdb   *igdb.Client
-	steam  *steam.Client
-	store  *steam.StoreClient
-	covers *cover.Resolver
+	db        *pgxpool.Pool
+	igdb      *igdb.Client
+	steam     *steam.Client
+	store     *steam.StoreClient
+	xbox      *xbox.Client
+	encrypter *crypto.Encrypter
+	covers    *cover.Resolver
 }
 
-func NewService(db *pgxpool.Pool, igdbClient *igdb.Client) *Service {
-	return NewServiceWithSteam(db, igdbClient, steam.NewClient(os.Getenv("STEAM_API_KEY")), nil)
+func NewService(db *pgxpool.Pool, igdbClient *igdb.Client, encrypter *crypto.Encrypter) *Service {
+	return NewServiceWithProviders(
+		db,
+		igdbClient,
+		steam.NewClient(os.Getenv("STEAM_API_KEY")),
+		nil,
+		xbox.NewClient(os.Getenv("XBOX_CLIENT_ID"), os.Getenv("XBOX_CLIENT_SECRET")),
+		encrypter,
+	)
 }
 
 func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient *steam.Client, storeClient *steam.StoreClient) *Service {
+	return NewServiceWithProviders(db, igdbClient, steamClient, storeClient, nil, nil)
+}
+
+func NewServiceWithProviders(
+	db *pgxpool.Pool,
+	igdbClient *igdb.Client,
+	steamClient *steam.Client,
+	storeClient *steam.StoreClient,
+	xboxClient *xbox.Client,
+	encrypter *crypto.Encrypter,
+) *Service {
 	if storeClient == nil {
 		storeClient = steam.NewStoreClient()
 	}
 	return &Service{
-		db:     db,
-		igdb:   igdbClient,
-		steam:  steamClient,
-		store:  storeClient,
-		covers: cover.NewResolver(db, igdbClient),
+		db:        db,
+		igdb:      igdbClient,
+		steam:     steamClient,
+		store:     storeClient,
+		xbox:      xboxClient,
+		encrypter: encrypter,
+		covers:    cover.NewResolver(db, igdbClient),
 	}
 }
 
@@ -320,7 +345,8 @@ func (s *Service) persistIGDBGame(ctx context.Context, userID int64, g steam.Own
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, g.PlaytimeForever)
+	playtime := g.PlaytimeForever
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, steamPlatform, &playtime)
 }
 
 func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam.OwnedGame) (bool, error) {
@@ -341,7 +367,8 @@ func (s *Service) importSteamOnlyGame(ctx context.Context, userID int64, g steam
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, g.PlaytimeForever)
+	playtime := g.PlaytimeForever
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, steamPlatform, &playtime)
 }
 
 func (s *Service) fetchCover(ctx context.Context, gameID int64) {
@@ -354,7 +381,7 @@ func (s *Service) fetchCover(ctx context.Context, gameID int64) {
 	}()
 }
 
-func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64, playtimeMinutes int) (bool, error) {
+func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID int64, platform string, playtimeMinutes *int) (bool, error) {
 	exists, err := models.LibraryEntryExists(ctx, s.db, userID, gameID)
 	if err != nil {
 		return false, err
@@ -363,8 +390,7 @@ func (s *Service) addGameToLibraryIfNeeded(ctx context.Context, userID, gameID i
 		return false, nil
 	}
 
-	playtime := playtimeMinutes
-	if err := models.AddToLibrary(ctx, s.db, userID, gameID, steamPlatform, &playtime); err != nil {
+	if err := models.AddToLibrary(ctx, s.db, userID, gameID, platform, playtimeMinutes); err != nil {
 		return false, err
 	}
 	return true, nil
