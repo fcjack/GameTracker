@@ -88,16 +88,40 @@ func (c *Client) AuthorizeURL(redirectURI, state string) string {
 }
 
 func (c *Client) ExchangeCode(ctx context.Context, code, redirectURI string) (*TokenPair, error) {
+	form := url.Values{}
+	form.Set("grant_type", "authorization_code")
+	form.Set("code", code)
+	form.Set("redirect_uri", redirectURI)
+	return c.requestToken(ctx, form)
+}
+
+func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
+	if refreshToken == "" {
+		return nil, fmt.Errorf("xbox: refresh token is required")
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	form.Set("scope", defaultScope)
+
+	pair, err := c.requestToken(ctx, form)
+	if err != nil {
+		return nil, err
+	}
+	if pair.RefreshToken == "" {
+		pair.RefreshToken = refreshToken
+	}
+	return pair, nil
+}
+
+func (c *Client) requestToken(ctx context.Context, form url.Values) (*TokenPair, error) {
 	if !c.Configured() {
 		return nil, fmt.Errorf("xbox: client credentials are not configured")
 	}
 
-	form := url.Values{}
 	form.Set("client_id", c.clientID)
 	form.Set("client_secret", c.clientSecret)
-	form.Set("grant_type", "authorization_code")
-	form.Set("code", code)
-	form.Set("redirect_uri", redirectURI)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
@@ -116,6 +140,10 @@ func (c *Client) ExchangeCode(ctx context.Context, code, redirectURI string) (*T
 		return nil, fmt.Errorf("xbox: read token response: %w", err)
 	}
 
+	return parseTokenResponse(body)
+}
+
+func parseTokenResponse(body []byte) (*TokenPair, error) {
 	var parsed struct {
 		AccessToken      string `json:"access_token"`
 		RefreshToken     string `json:"refresh_token"`
@@ -127,7 +155,11 @@ func (c *Client) ExchangeCode(ctx context.Context, code, redirectURI string) (*T
 		return nil, fmt.Errorf("xbox: decode token response: %w", err)
 	}
 	if parsed.Error != "" {
-		return nil, fmt.Errorf("xbox: token exchange failed: %s", strings.TrimSpace(parsed.ErrorDescription))
+		desc := strings.TrimSpace(parsed.ErrorDescription)
+		if desc == "" {
+			desc = parsed.Error
+		}
+		return nil, fmt.Errorf("xbox: token request failed: %s", desc)
 	}
 	if parsed.AccessToken == "" {
 		return nil, fmt.Errorf("xbox: token response missing access token")

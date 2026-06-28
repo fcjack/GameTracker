@@ -137,3 +137,95 @@ func TestResolveIdentityFallbackGamertag(t *testing.T) {
 		t.Errorf("Gamertag = %q, want fallback to XUID %q", identity.Gamertag, identity.XUID)
 	}
 }
+
+func TestRefreshToken(t *testing.T) {
+	t.Parallel()
+
+	const (
+		oldRefresh = "old-refresh-token"
+		newAccess  = "new-access-token"
+		newRefresh = "new-refresh-token"
+	)
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := r.ParseForm(); err != nil {
+			t.Fatalf("ParseForm: %v", err)
+		}
+		if got := r.Form.Get("grant_type"); got != "refresh_token" {
+			t.Errorf("grant_type = %q, want refresh_token", got)
+		}
+		if got := r.Form.Get("refresh_token"); got != oldRefresh {
+			t.Errorf("refresh_token = %q, want %q", got, oldRefresh)
+		}
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token":  newAccess,
+			"refresh_token": newRefresh,
+			"expires_in":    3600,
+			"token_type":    "bearer",
+		})
+	}))
+	defer tokenServer.Close()
+
+	client := NewClientWithHTTP("client-id", "secret", tokenServer.Client())
+	client.SetEndpoints(tokenServer.URL, "", "")
+
+	tokens, err := client.RefreshToken(context.Background(), oldRefresh)
+	if err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if tokens.AccessToken != newAccess {
+		t.Errorf("AccessToken = %q, want %q", tokens.AccessToken, newAccess)
+	}
+	if tokens.RefreshToken != newRefresh {
+		t.Errorf("RefreshToken = %q, want %q", tokens.RefreshToken, newRefresh)
+	}
+}
+
+func TestRefreshTokenKeepsExistingRefreshWhenOmitted(t *testing.T) {
+	t.Parallel()
+
+	const oldRefresh = "rolling-refresh-token"
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{
+			"access_token": "new-access-token",
+			"expires_in":   3600,
+		})
+	}))
+	defer tokenServer.Close()
+
+	client := NewClientWithHTTP("client-id", "secret", tokenServer.Client())
+	client.SetEndpoints(tokenServer.URL, "", "")
+
+	tokens, err := client.RefreshToken(context.Background(), oldRefresh)
+	if err != nil {
+		t.Fatalf("RefreshToken() error = %v", err)
+	}
+	if tokens.RefreshToken != oldRefresh {
+		t.Errorf("RefreshToken = %q, want preserved %q", tokens.RefreshToken, oldRefresh)
+	}
+}
+
+func TestRefreshTokenFailure(t *testing.T) {
+	t.Parallel()
+
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		json.NewEncoder(w).Encode(map[string]any{
+			"error":             "invalid_grant",
+			"error_description": "Refresh token expired",
+		})
+	}))
+	defer tokenServer.Close()
+
+	client := NewClientWithHTTP("client-id", "secret", tokenServer.Client())
+	client.SetEndpoints(tokenServer.URL, "", "")
+
+	_, err := client.RefreshToken(context.Background(), "expired-refresh")
+	if err == nil {
+		t.Fatal("RefreshToken() error = nil, want failure")
+	}
+	if !strings.Contains(err.Error(), "Refresh token expired") {
+		t.Errorf("RefreshToken() error = %v, want refresh failure details", err)
+	}
+}
