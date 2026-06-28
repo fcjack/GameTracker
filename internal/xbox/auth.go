@@ -287,7 +287,7 @@ func (c *Client) authorizeXSTS(ctx context.Context, userToken string) (*xstsResp
 }
 
 type xstsResponse struct {
-	Token string `json:"Token"`
+	Token         string `json:"Token"`
 	DisplayClaims struct {
 		Xui []struct {
 			Uhs string `json:"uhs"`

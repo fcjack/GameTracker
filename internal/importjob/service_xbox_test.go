@@ -493,10 +493,10 @@ func TestStartXboxImportRecordsAPIFailure(t *testing.T) {
 }
 
 type mockXboxServers struct {
-	userURL      string
-	xstsURL      string
-	titleHubURL  string
-	httpClient   *http.Client
+	userURL     string
+	xstsURL     string
+	titleHubURL string
+	httpClient  *http.Client
 }
 
 func (m *mockXboxServers) client() *http.Client {
