@@ -1,0 +1,2 @@
+ALTER TABLE games
+    ADD COLUMN IF NOT EXISTS xbox_title_id BIGINT UNIQUE;

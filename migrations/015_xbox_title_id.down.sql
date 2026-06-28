@@ -1,0 +1,1 @@
+ALTER TABLE games DROP COLUMN IF EXISTS xbox_title_id;
