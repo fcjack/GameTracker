@@ -61,7 +61,7 @@ func (c *Client) GetOwnedGames(steamID string) ([]OwnedGame, error) {
 	}
 
 	url := fmt.Sprintf(
-		"%s/IPlayerService/GetOwnedGames/v0001/?key=%s&steamid=%s&include_appinfo=1&include_played_free_games=0&format=json",
+		"%s/IPlayerService/GetOwnedGames/v0001/?key=%s&steamid=%s&include_appinfo=1&include_played_free_games=1&format=json",
 		c.baseURL, c.apiKey, steamID,
 	)
 

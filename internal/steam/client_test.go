@@ -13,8 +13,8 @@ func TestGetOwnedGames(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		if got := r.URL.Query().Get("include_played_free_games"); got != "0" {
-			t.Errorf("include_played_free_games = %q, want 0", got)
+		if got := r.URL.Query().Get("include_played_free_games"); got != "1" {
+			t.Errorf("include_played_free_games = %q, want 1", got)
 		}
 		json.NewEncoder(w).Encode(map[string]any{
 			"response": map[string]any{
