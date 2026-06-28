@@ -70,6 +70,7 @@ func TestExchangeCodeAndResolveIdentity(t *testing.T) {
 
 	xstsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
+			"Token": "xsts-token",
 			"DisplayClaims": map[string]any{
 				"xui": []map[string]string{{
 					"uhs": "user-hash",
@@ -117,8 +118,10 @@ func TestResolveIdentityFallbackGamertag(t *testing.T) {
 
 	xstsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
+			"Token": "xsts-token",
 			"DisplayClaims": map[string]any{
 				"xui": []map[string]string{{
+					"uhs": "user-hash",
 					"xid": "2535465432123456",
 				}},
 			},

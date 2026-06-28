@@ -110,8 +110,10 @@ func TestXboxCallbackSuccess(t *testing.T) {
 
 	xstsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
+			"Token": "xsts-token",
 			"DisplayClaims": map[string]any{
 				"xui": []map[string]string{{
+					"uhs": "user-hash",
 					"xid": xuid,
 					"gtg": gamertag,
 				}},

@@ -17,6 +17,7 @@ const (
 	defaultTokenURL     = "https://login.microsoftonline.com/consumers/oauth2/v2.0/token"
 	defaultUserAuthURL  = "https://user.auth.xboxlive.com/user/authenticate"
 	defaultXSTSURL      = "https://xsts.auth.xboxlive.com/xsts/authorize"
+	defaultTitleHubURL  = "https://titlehub.xboxlive.com"
 	defaultScope        = "xboxlive.signin xboxlive.offline_access"
 )
 
@@ -27,6 +28,7 @@ type Client struct {
 	tokenURL     string
 	userAuthURL  string
 	xstsURL      string
+	titleHubURL  string
 	httpClient   *http.Client
 }
 
@@ -37,6 +39,14 @@ type TokenPair struct {
 }
 
 type Identity struct {
+	XUID     string
+	Gamertag string
+}
+
+// XSTSSession holds the authenticated Xbox Live session used for service calls.
+type XSTSSession struct {
+	Token    string
+	UserHash string
 	XUID     string
 	Gamertag string
 }
@@ -56,6 +66,7 @@ func NewClientWithHTTP(clientID, clientSecret string, httpClient *http.Client) *
 		tokenURL:     defaultTokenURL,
 		userAuthURL:  defaultUserAuthURL,
 		xstsURL:      defaultXSTSURL,
+		titleHubURL:  defaultTitleHubURL,
 		httpClient:   httpClient,
 	}
 }
@@ -70,6 +81,13 @@ func (c *Client) SetEndpoints(tokenURL, userAuthURL, xstsURL string) {
 	}
 	if xstsURL != "" {
 		c.xstsURL = xstsURL
+	}
+}
+
+// SetTitleHubURL overrides the Title Hub base URL. Used by tests.
+func (c *Client) SetTitleHubURL(titleHubURL string) {
+	if titleHubURL != "" {
+		c.titleHubURL = titleHubURL
 	}
 }
 
@@ -177,7 +195,7 @@ func parseTokenResponse(body []byte) (*TokenPair, error) {
 	}, nil
 }
 
-func (c *Client) ResolveIdentity(ctx context.Context, accessToken string) (*Identity, error) {
+func (c *Client) Authenticate(ctx context.Context, accessToken string) (*XSTSSession, error) {
 	userToken, err := c.authenticateUser(ctx, accessToken)
 	if err != nil {
 		return nil, err
@@ -188,6 +206,9 @@ func (c *Client) ResolveIdentity(ctx context.Context, accessToken string) (*Iden
 		return nil, err
 	}
 
+	if xsts.Token == "" {
+		return nil, fmt.Errorf("xbox: XSTS response missing token")
+	}
 	if len(xsts.DisplayClaims.Xui) == 0 {
 		return nil, fmt.Errorf("xbox: missing identity claims")
 	}
@@ -196,15 +217,32 @@ func (c *Client) ResolveIdentity(ctx context.Context, accessToken string) (*Iden
 	if claim.Xid == "" {
 		return nil, fmt.Errorf("xbox: missing XUID")
 	}
+	if claim.Uhs == "" {
+		return nil, fmt.Errorf("xbox: missing user hash")
+	}
 
 	gamertag := claim.Gtg
 	if gamertag == "" {
 		gamertag = claim.Xid
 	}
 
-	return &Identity{
+	return &XSTSSession{
+		Token:    xsts.Token,
+		UserHash: claim.Uhs,
 		XUID:     claim.Xid,
 		Gamertag: gamertag,
+	}, nil
+}
+
+func (c *Client) ResolveIdentity(ctx context.Context, accessToken string) (*Identity, error) {
+	session, err := c.Authenticate(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Identity{
+		XUID:     session.XUID,
+		Gamertag: session.Gamertag,
 	}, nil
 }
 
@@ -249,6 +287,7 @@ func (c *Client) authorizeXSTS(ctx context.Context, userToken string) (*xstsResp
 }
 
 type xstsResponse struct {
+	Token string `json:"Token"`
 	DisplayClaims struct {
 		Xui []struct {
 			Uhs string `json:"uhs"`
@@ -256,6 +295,37 @@ type xstsResponse struct {
 			Gtg string `json:"gtg"`
 		} `json:"xui"`
 	} `json:"DisplayClaims"`
+}
+
+func (c *Client) getXBLJSON(ctx context.Context, endpoint string, session *XSTSSession, contractVersion string, dest any) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return fmt.Errorf("xbox: create request: %w", err)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "en-US")
+	req.Header.Set("Authorization", fmt.Sprintf("XBL3.0 x=%s;%s", session.UserHash, session.Token))
+	req.Header.Set("x-xbl-contract-version", contractVersion)
+
+	resp, err := c.httpClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("xbox: request %s: %w", endpoint, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("xbox: read response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("xbox: %s returned %d: %s", endpoint, resp.StatusCode, strings.TrimSpace(string(respBody)))
+	}
+
+	if err := json.Unmarshal(respBody, dest); err != nil {
+		return fmt.Errorf("xbox: decode response: %w", err)
+	}
+	return nil
 }
 
 func (c *Client) postJSON(ctx context.Context, endpoint string, payload any, dest any, contractVersion string) error {
