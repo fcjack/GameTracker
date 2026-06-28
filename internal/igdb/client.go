@@ -8,11 +8,15 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jacksoncoelho/game-tracker/internal/gamename"
 )
 
 const (
-	externalGameCategorySteam = 1
-	gameCategoryMainGame      = 0
+	externalGameCategorySteam           = 1
+	externalGameCategoryMicrosoft       = 11
+	externalGameCategoryXboxMarketplace = 31
+	gameCategoryMainGame                = 0
 	// IGDB allows 4 requests/second; stay under with a 300ms minimum gap.
 	minRequestInterval = 300 * time.Millisecond
 )
@@ -198,8 +202,9 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 }
 
 type externalGameResult struct {
-	Game     int64 `json:"game"`
-	Category int   `json:"category"`
+	Game     int64  `json:"game"`
+	Category int    `json:"category"`
+	Name     string `json:"name"`
 }
 
 // LookupIGDBIDBySteamAppID resolves a Steam app ID to an IGDB game.
@@ -239,6 +244,74 @@ func (c *Client) LookupIGDBIDBySteamAppID(appID int, steamName string) (int64, e
 		}
 	}
 	return fallback, nil
+}
+
+// LookupIGDBIDByXboxTitleID resolves an Xbox title ID to an IGDB game.
+// Xbox name disambiguates when the same uid exists across multiple storefronts.
+// When Twitch credentials are not configured, callers should skip IGDB lookup and
+// import Xbox metadata only.
+func (c *Client) LookupIGDBIDByXboxTitleID(titleID int, xboxName string) (int64, error) {
+	if titleID <= 0 {
+		return 0, nil
+	}
+
+	if xboxName != "" {
+		body := fmt.Sprintf(
+			`fields name; where external_games.uid = "%d" & name = "%s"; limit 1;`,
+			titleID,
+			strings.ReplaceAll(xboxName, `"`, `\"`),
+		)
+		var results []SearchResult
+		if err := c.post("/games", body, &results); err != nil {
+			return 0, err
+		}
+		if len(results) > 0 {
+			return results[0].ID, nil
+		}
+	}
+
+	body := fmt.Sprintf(`fields game,category,name; where uid = "%d"; limit 10;`, titleID)
+	var results []externalGameResult
+	if err := c.post("/external_games", body, &results); err != nil {
+		return 0, err
+	}
+
+	var fallback int64
+	for _, r := range results {
+		if r.Game == 0 {
+			continue
+		}
+		if xboxName != "" && r.Name != "" && !gamename.Match(xboxName, r.Name) {
+			continue
+		}
+		switch r.Category {
+		case 0, externalGameCategoryXboxMarketplace, externalGameCategoryMicrosoft:
+			if fallback == 0 {
+				fallback = r.Game
+			}
+		}
+	}
+	if fallback != 0 {
+		return fallback, nil
+	}
+
+	if xboxName == "" {
+		return 0, nil
+	}
+
+	searchResults, err := c.Search(xboxName, 5)
+	if err != nil {
+		return 0, err
+	}
+	for _, result := range searchResults {
+		if !IsMainGame(result.Category) {
+			continue
+		}
+		if gamename.Match(xboxName, result.Name) {
+			return result.ID, nil
+		}
+	}
+	return 0, nil
 }
 
 func (c *Client) GetGameByID(id int64) (*SearchResult, error) {

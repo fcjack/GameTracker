@@ -286,6 +286,125 @@ func TestLookupIGDBIDBySteamAppIDFallback(t *testing.T) {
 	}
 }
 
+func TestLookupIGDBIDByXboxTitleID(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), `external_games.uid = "1144039928"`) {
+				t.Errorf("games body = %q, expected xbox title id 1144039928", string(body))
+			}
+			json.NewEncoder(w).Encode([]SearchResult{{ID: 98765, Name: "Halo Infinite"}})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{{Game: 11111}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.tokenURL = server.URL + "/token"
+	client.httpClient = server.Client()
+
+	igdbID, err := client.LookupIGDBIDByXboxTitleID(1144039928, "Halo Infinite")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByXboxTitleID() error = %v", err)
+	}
+	if igdbID != 98765 {
+		t.Errorf("igdb id = %d, want 98765", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByXboxTitleIDExternalGamesFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(body), `search "Halo Infinite"`) {
+				json.NewEncoder(w).Encode([]SearchResult{})
+				return
+			}
+			json.NewEncoder(w).Encode([]SearchResult{})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{
+				{Game: 999, Category: 3, Name: "Wrong Game"},
+				{Game: 135590, Category: externalGameCategoryXboxMarketplace, Name: "Halo Infinite"},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.SetHTTPClient(server.Client())
+
+	igdbID, err := client.LookupIGDBIDByXboxTitleID(1144039928, "Halo Infinite")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByXboxTitleID() error = %v", err)
+	}
+	if igdbID != 135590 {
+		t.Errorf("igdb id = %d, want 135590", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByXboxTitleIDNameSearchFallback(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(body), `search "Ori and the Will of the Wisps"`) {
+				json.NewEncoder(w).Encode([]SearchResult{
+					{ID: 119171, Name: "Ori and the Will of the Wisps", Category: 0},
+				})
+				return
+			}
+			json.NewEncoder(w).Encode([]SearchResult{})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.httpClient = server.Client()
+
+	igdbID, err := client.LookupIGDBIDByXboxTitleID(1659804324, "Ori and the Will of the Wisps")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByXboxTitleID() error = %v", err)
+	}
+	if igdbID != 119171 {
+		t.Errorf("igdb id = %d, want 119171", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByXboxTitleIDWithoutCredentialsReturnsZero(t *testing.T) {
+	t.Parallel()
+	client := NewClient("", "", "http://example.invalid")
+
+	igdbID, err := client.LookupIGDBIDByXboxTitleID(1144039928, "Halo Infinite")
+	if err == nil {
+		t.Fatalf("LookupIGDBIDByXboxTitleID() error = nil, want token failure")
+	}
+	if igdbID != 0 {
+		t.Errorf("igdb id = %d, want 0 on lookup failure", igdbID)
+	}
+}
+
 func TestGetGameByID(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
