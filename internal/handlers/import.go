@@ -98,3 +98,80 @@ func (h *ImportHandler) ClearSteamLibrary(c *gin.Context) {
 
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?steam_cleared=%d", removed))
 }
+
+func (h *ImportHandler) XboxImportStatus(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	locale := LocaleFromContext(c)
+
+	job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "xbox")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.HTML(http.StatusOK, "profile/xbox_import_status", ViewData(c, gin.H{}))
+			return
+		}
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.HTML(http.StatusOK, "profile/xbox_import_status", ViewData(c, gin.H{
+		"xboxImportJob":        job,
+		"xboxImportJobSummary": i18n.ImportJobSummary(job, locale),
+	}))
+}
+
+func (h *ImportHandler) StartXboxImport(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	_, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "xbox")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.xbox_not_linked")
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
+		return
+	}
+
+	_, err = h.service.StartXboxImport(c.Request.Context(), userID)
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/profile")
+}
+
+func (h *ImportHandler) ClearXboxLibrary(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	active, err := models.HasActiveImportJob(c.Request.Context(), h.db, userID, "xbox")
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_xbox_library_failed")
+		return
+	}
+	if active {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.import_in_progress")
+		return
+	}
+
+	_, err = models.GetLinkedAccount(c.Request.Context(), h.db, userID, "xbox")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.xbox_not_linked")
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_xbox_library_failed")
+		return
+	}
+
+	removed, err := models.RemoveXboxGamesFromLibrary(c.Request.Context(), h.db, userID)
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_xbox_library_failed")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?xbox_cleared=%d", removed))
+}

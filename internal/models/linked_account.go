@@ -31,7 +31,8 @@ func UpsertLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, pr
 			refresh_token_enc = $6,
 			token_expires_at = $7,
 			updated_at = NOW()
-		RETURNING id, user_id, provider, external_id, display_name, access_token_enc, refresh_token_enc, token_expires_at, created_at, updated_at
+		RETURNING id, user_id, provider, external_id, display_name,
+			COALESCE(access_token_enc, ''), COALESCE(refresh_token_enc, ''), token_expires_at, created_at, updated_at
 	`
 
 	var la LinkedAccount
@@ -46,7 +47,8 @@ func UpsertLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, pr
 
 func GetLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, provider string) (*LinkedAccount, error) {
 	const query = `
-		SELECT id, user_id, provider, external_id, display_name, access_token_enc, refresh_token_enc, token_expires_at, created_at, updated_at
+		SELECT id, user_id, provider, external_id, display_name,
+			COALESCE(access_token_enc, ''), COALESCE(refresh_token_enc, ''), token_expires_at, created_at, updated_at
 		FROM linked_accounts
 		WHERE user_id = $1 AND provider = $2
 	`
@@ -65,7 +67,8 @@ func GetLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, provi
 // all users. Used by the background scheduler to drive periodic library syncs.
 func ListLinkedAccountsByProvider(ctx context.Context, db *pgxpool.Pool, provider string) ([]*LinkedAccount, error) {
 	const query = `
-		SELECT id, user_id, provider, external_id, display_name, access_token_enc, refresh_token_enc, token_expires_at, created_at, updated_at
+		SELECT id, user_id, provider, external_id, display_name,
+			COALESCE(access_token_enc, ''), COALESCE(refresh_token_enc, ''), token_expires_at, created_at, updated_at
 		FROM linked_accounts
 		WHERE provider = $1
 		ORDER BY user_id ASC
@@ -104,7 +107,8 @@ func DeleteLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, pr
 
 func ListLinkedAccounts(ctx context.Context, db *pgxpool.Pool, userID int64) ([]*LinkedAccount, error) {
 	const query = `
-		SELECT id, user_id, provider, external_id, display_name, access_token_enc, refresh_token_enc, token_expires_at, created_at, updated_at
+		SELECT id, user_id, provider, external_id, display_name,
+			COALESCE(access_token_enc, ''), COALESCE(refresh_token_enc, ''), token_expires_at, created_at, updated_at
 		FROM linked_accounts
 		WHERE user_id = $1
 		ORDER BY created_at DESC

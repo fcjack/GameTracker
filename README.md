@@ -105,9 +105,46 @@ LIBRARY_SYNC_INTERVAL=6h
 ```
 
 When `LIBRARY_SYNC_ENABLED=true`, a background scheduler re-imports every linked
-library on the interval set by `LIBRARY_SYNC_INTERVAL` (Go duration, default `6h`,
+Steam and Xbox library on the interval set by `LIBRARY_SYNC_INTERVAL` (Go duration, default `6h`,
 minimum `15m`). It reuses the idempotent import pipeline, so it only adds newly
 acquired games and never collides with a manual import already in progress.
+
+### Linking Steam and Xbox
+
+After the app is running, open **Profile** to link external accounts and sync libraries.
+
+#### Steam
+
+1. Create a [Steam Web API key](https://steamcommunity.com/dev/apikey) and set `STEAM_API_KEY`.
+2. On Profile, click **Link Account** under Steam (OpenID — no extra redirect URI setup).
+3. Use **Sync Library** to import owned games. **Clear Steam games** removes only Steam-platform
+   entries from your local library so you can re-sync from scratch.
+
+#### Xbox
+
+1. In [Azure Portal](https://portal.azure.com/), create an **App registration**:
+   - Supported account types: **Personal Microsoft accounts only** (consumers).
+   - Add a **Web** redirect URI: `http://localhost:8080/auth/xbox/callback` for local dev,
+     or `https://your-domain/auth/xbox/callback` in production.
+   - Under **Certificates & secrets**, create a client secret.
+2. Set `XBOX_CLIENT_ID` and `XBOX_CLIENT_SECRET` from the app registration.
+   The app requests `xboxlive.signin` and `xboxlive.offline_access` so tokens can be refreshed
+   for background library sync.
+3. On Profile, click **Link Account** under Xbox and sign in with your Microsoft account.
+4. Use **Sync Library** to import your Xbox title history. **Clear Xbox games** removes only
+   Xbox-platform entries from your local library.
+
+#### IGDB (optional but recommended)
+
+Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` from the [Twitch Developer Console](https://dev.twitch.tv/console)
+(IGDB uses Twitch OAuth). When configured, imports resolve richer metadata and covers; without it,
+Steam/Xbox imports still work using platform-specific data.
+
+#### Scheduled background sync
+
+Set `LIBRARY_SYNC_ENABLED=true` to run automatic re-syncs for **all** linked Steam and Xbox accounts
+on `LIBRARY_SYNC_INTERVAL`. Manual sync from Profile uses the same import jobs; an in-progress import
+blocks overlapping runs for that provider.
 
 ### Running With Docker (Recommended)
 

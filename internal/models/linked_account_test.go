@@ -86,6 +86,37 @@ func TestLinkedAccountCRUD(t *testing.T) {
 	}
 }
 
+func TestListLinkedAccountsWithNullTokens(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	_, err = db.Exec(ctx, `
+		INSERT INTO linked_accounts (user_id, provider, external_id, display_name, created_at, updated_at)
+		VALUES ($1, 'xbox', '2535465432123456', 'Gamer', NOW(), NOW())
+	`, user.ID)
+	if err != nil {
+		t.Fatalf("insert linked account error = %v", err)
+	}
+
+	accounts, err := ListLinkedAccounts(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListLinkedAccounts() error = %v", err)
+	}
+	if len(accounts) != 1 {
+		t.Fatalf("ListLinkedAccounts() count = %d, want 1", len(accounts))
+	}
+	if accounts[0].AccessTokenEnc != "" || accounts[0].RefreshTokenEnc != "" {
+		t.Errorf("token fields = %q/%q, want empty strings for NULL columns", accounts[0].AccessTokenEnc, accounts[0].RefreshTokenEnc)
+	}
+}
+
 func TestLinkedAccountProviderConstraint(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)

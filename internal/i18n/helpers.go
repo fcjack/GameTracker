@@ -11,11 +11,20 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 	switch job.Status {
 	case "completed":
 		if job.ImportedCount == 0 && job.SkippedCount == 0 {
+			if job.Provider == "xbox" {
+				return T(locale, "import.no_games_found_xbox")
+			}
 			return T(locale, "import.no_games_found")
 		}
 		key := "import.imported"
 		if job.ImportedCount != 1 {
 			key = "import.imported_plural"
+		}
+		if job.Provider == "xbox" {
+			key = "import.imported_xbox"
+			if job.ImportedCount != 1 {
+				key = "import.imported_xbox_plural"
+			}
 		}
 		msg := T(locale, key, job.ImportedCount)
 		if job.SkippedCount > 0 {

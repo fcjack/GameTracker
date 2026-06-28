@@ -29,21 +29,14 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 	username := session.Get("username").(string)
 	locale := LocaleFromContext(c)
 
+	base := h.profileTemplateBase(c, userID, username, locale)
+
 	accounts, err := models.ListLinkedAccounts(c.Request.Context(), h.db, userID)
 	if err != nil {
-		c.HTML(http.StatusInternalServerError, "profile/index", ViewData(c, gin.H{
-			"error": "error.load_accounts",
-		}))
+		base["error"] = "error.load_accounts"
+		c.HTML(http.StatusInternalServerError, "profile/index", ViewData(c, base))
 		return
 	}
-
-	data, _, _ := models.GetAvatarByUserID(c.Request.Context(), h.db, userID)
-	hasAvatar := len(data) > 0
-
-	gravatarURL := fmt.Sprintf(
-		"https://www.gravatar.com/avatar/%x?d=identicon&s=128",
-		md5.Sum([]byte(strings.ToLower(username))),
-	)
 
 	var steamAccount *models.LinkedAccount
 	var xboxAccount *models.LinkedAccount
@@ -64,6 +57,33 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
+	var xboxImportJob *models.ImportJob
+	if xboxAccount != nil {
+		job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "xbox")
+		if err == nil {
+			xboxImportJob = job
+		}
+	}
+
+	base["steamAccount"] = steamAccount
+	base["xboxAccount"] = xboxAccount
+	base["steamImportJob"] = steamImportJob
+	base["xboxImportJob"] = xboxImportJob
+	base["importJobSummary"] = i18n.ImportJobSummary(steamImportJob, locale)
+	base["xboxImportJobSummary"] = i18n.ImportJobSummary(xboxImportJob, locale)
+
+	c.HTML(http.StatusOK, "profile/index", ViewData(c, base))
+}
+
+func (h *ProfileHandler) profileTemplateBase(c *gin.Context, userID int64, username, locale string) gin.H {
+	data, _, _ := models.GetAvatarByUserID(c.Request.Context(), h.db, userID)
+	hasAvatar := len(data) > 0
+
+	gravatarURL := fmt.Sprintf(
+		"https://www.gravatar.com/avatar/%x?d=identicon&s=128",
+		md5.Sum([]byte(strings.ToLower(username))),
+	)
+
 	steamCleared := 0
 	if cleared := c.Query("steam_cleared"); cleared != "" {
 		if n, err := fmt.Sscanf(cleared, "%d", &steamCleared); err != nil || n != 1 {
@@ -71,22 +91,26 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
-	c.HTML(http.StatusOK, "profile/index", ViewData(c, gin.H{
-		"username":         username,
-		"activeNav":        "profile",
-		"hasAvatar":        hasAvatar,
-		"gravatarURL":      gravatarURL,
-		"steamAccount":     steamAccount,
-		"xboxAccount":      xboxAccount,
-		"steamImportJob":   steamImportJob,
-		"importJobSummary": i18n.ImportJobSummary(steamImportJob, locale),
-		"locale":           locale,
-		"error":            c.Query("error"),
-		"passwordError":    c.Query("password_error"),
-		"passwordSuccess":  c.Query("password_success") == "1",
-		"localeSuccess":    c.Query("locale_success") == "1",
-		"steamCleared":     steamCleared,
-	}))
+	xboxCleared := 0
+	if cleared := c.Query("xbox_cleared"); cleared != "" {
+		if n, err := fmt.Sscanf(cleared, "%d", &xboxCleared); err != nil || n != 1 {
+			xboxCleared = 0
+		}
+	}
+
+	return gin.H{
+		"username":        username,
+		"activeNav":         "profile",
+		"hasAvatar":         hasAvatar,
+		"gravatarURL":       gravatarURL,
+		"locale":            locale,
+		"error":             c.Query("error"),
+		"passwordError":     c.Query("password_error"),
+		"passwordSuccess":   c.Query("password_success") == "1",
+		"localeSuccess":     c.Query("locale_success") == "1",
+		"steamCleared":      steamCleared,
+		"xboxCleared":       xboxCleared,
+	}
 }
 
 func (h *ProfileHandler) ChangeLocale(c *gin.Context) {

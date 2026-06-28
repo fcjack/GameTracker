@@ -73,7 +73,8 @@ Copy `.env.example` to `.env`. Required variables:
 - `SESSION_SECRET` — random 32-char string for session signing
 - `ENCRYPTION_KEY` — 32-byte key hex-encoded (generate: `python3 -c "import os; print(os.urandom(32).hex())"`) for encrypting secrets before DB storage
 - `STEAM_API_KEY` — Steam Web API key
-- `XBOX_CLIENT_ID` / `XBOX_CLIENT_SECRET` — Xbox Live OAuth credentials
+- `XBOX_CLIENT_ID` / `XBOX_CLIENT_SECRET` — Microsoft OAuth app for Xbox linking and library import (redirect URI `/auth/xbox/callback`)
+- `TWITCH_CLIENT_ID` / `TWITCH_CLIENT_SECRET` — IGDB API credentials (optional; improves import metadata)
 - `APP_PORT` — defaults to 8080
 - `LIBRARY_SYNC_ENABLED` — when `true`, runs a background scheduler that periodically re-syncs every linked library (default: `false`)
 - `LIBRARY_SYNC_INTERVAL` — Go duration controlling how often the scheduled sync runs (default: `6h`, minimum: `15m`)
@@ -91,7 +92,9 @@ Copy `.env.example` to `.env`. Required variables:
 - Protected by `handlers.AuthRequired()`:
   - Dashboard: `GET /dashboard`, `GET /dashboard/stats`
   - Library: `GET /library`, `GET /library/games`, `GET /library/search` (search user's imported games), `GET /library/search/igdb` (IGDB search — dashboard only), `POST /library/games`, `DELETE /library/games/:game_id`, status/complete endpoints
-  - Profile, Steam auth/import endpoints
+  - Profile: `GET /profile`, locale/avatar/password endpoints
+  - Steam: `GET /auth/steam`, `GET /auth/steam/callback`, `POST /profile/steam/import`, `POST /profile/steam/clear-library`, `GET /profile/steam/import-status`
+  - Xbox: `GET /auth/xbox`, `GET /auth/xbox/callback`, `POST /profile/xbox/import`, `POST /profile/xbox/clear-library`, `GET /profile/xbox/import-status`
 
 **Internal packages:**
 
@@ -101,8 +104,11 @@ Copy `.env.example` to `.env`. Required variables:
 - `internal/models/` — domain structs and DB query functions together (no separate repository layer); handlers pass `db *pgxpool.Pool` into model functions directly
   - `user.go` — User struct, `CreateUser()`, `GetUserByUsername()`, `CheckPassword()`
   - `linked_account.go` — LinkedAccount struct, `UpsertLinkedAccount()`, `GetLinkedAccount()`, `DeleteLinkedAccount()`, `ListLinkedAccounts()`
-  - `game.go` — Game/UserGame structs, `FindOrCreateGame()`, `ListUserGames()`, `SearchUserGames()`, `AddToLibrary()`, status helpers
-- `internal/handlers/` — Gin handlers; `LibraryHandler` holds `db` + `igdb.Client`; `middleware.go` contains `AuthRequired()`
+  - `game.go` — Game/UserGame structs, `FindOrCreateGame()`, `ListUserGames()`, `SearchUserGames()`, `AddToLibrary()`, status helpers, `RemoveSteamGamesFromLibrary()`
+  - `game_xbox.go` — Xbox title helpers: `FindOrCreateGameByXboxTitleID()`, `ResolveGameForXboxImport()`, `RemoveXboxGamesFromLibrary()`, `ListImportedXboxTitleIDs()`
+- `internal/importjob/` — background import jobs (`StartSteamImport`, `StartXboxImport`) and optional `Scheduler` for periodic re-sync
+- `internal/xbox/` — Xbox Live OAuth client and owned-games API
+- `internal/handlers/` — Gin handlers; `LibraryHandler` holds `db` + `igdb.Client`; `ImportHandler` wires Steam/Xbox import routes; `middleware.go` contains `AuthRequired()`
 
 **Templates** (`templates/`):
 - Each `.html` file wraps its content in `{{define "folder/filename"}}...{{end}}` (e.g. `templates/auth/login.html` → `{{define "auth/login"}}`)
@@ -123,7 +129,7 @@ Copy `.env.example` to `.env`. Required variables:
 **Tables:**
 - `users` — user accounts with bcrypt-hashed passwords
 - `linked_accounts` — external provider identities (Steam, Xbox) with encrypted access/refresh tokens; UNIQUE(user_id, provider); supports upsert on re-auth
-- `games` — canonical game records (IGDB id, Steam app id, metadata)
+- `games` — canonical game records (IGDB id, Steam app id, Xbox title id, metadata)
 - `user_games` — per-user library entries with status, platform, completion/dropped dates; UNIQUE(user_id, game_id)
 - `categories` — IGDB game categories
 - `schema_migrations` — applied migration tracking
@@ -134,5 +140,5 @@ Copy `.env.example` to `.env`. Required variables:
 |-----|---------|--------|
 | Steam OpenID 2.0 | Link Steam account, get SteamID64 | Implemented |
 | Steam Web API | Import game library via encrypted SteamID | Implemented |
-| Xbox Live API (OAuth2) | Link Xbox account, get tokens | Planned |
+| Xbox Live API (OAuth2) | Link Xbox account, refresh tokens, import title history | Implemented |
 | IGDB API | Dashboard search + metadata when adding/importing games | Implemented |
