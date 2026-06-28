@@ -199,16 +199,31 @@
                     {{end}}
                 </div>
 
-                <!-- Xbox Account (Placeholder for future) -->
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div class="flex items-center gap-3">
-                        <i class="fab fa-xbox text-lg" style="color: #107c10;"></i>
-                        <div class="min-w-0">
-                            <p class="font-medium">{{call .T "profile.xbox"}}</p>
-                            <p class="text-sm text-gray-400">{{call .T "profile.coming_soon"}}</p>
+                <!-- Xbox Account -->
+                <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex items-center gap-3">
+                            <i class="fab fa-xbox text-lg" style="color: #107c10;"></i>
+                            <div class="min-w-0">
+                                <p class="font-medium">{{call .T "profile.xbox"}}</p>
+                                {{if .xboxAccount}}
+                                <p class="text-sm text-gray-400 break-all">{{.xboxAccount.DisplayName}} ({{.xboxAccount.ExternalID}})</p>
+                                {{else}}
+                                <p class="text-sm text-gray-400">{{call .T "profile.not_linked"}}</p>
+                                {{end}}
+                            </div>
                         </div>
+                        {{if .xboxAccount}}
+                        <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full self-start sm:self-auto">{{call .T "profile.linked"}}</span>
+                        {{else}}
+                        <a href="/auth/xbox" class="bg-green-700 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
+                            {{call .T "profile.link_account"}}
+                        </a>
+                        {{end}}
                     </div>
-                    <span class="text-xs bg-gray-700 text-gray-400 px-3 py-1 rounded-full self-start sm:self-auto">{{call .T "profile.coming_soon"}}</span>
+                    {{if .xboxAccount}}
+                    <p class="text-xs text-gray-500 mt-3">{{call .T "profile.xbox_library_coming_soon"}}</p>
+                    {{end}}
                 </div>
             </div>
         </div>

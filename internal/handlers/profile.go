@@ -46,10 +46,13 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 	)
 
 	var steamAccount *models.LinkedAccount
+	var xboxAccount *models.LinkedAccount
 	for _, acc := range accounts {
-		if acc.Provider == "steam" {
+		switch acc.Provider {
+		case "steam":
 			steamAccount = acc
-			break
+		case "xbox":
+			xboxAccount = acc
 		}
 	}
 
@@ -74,6 +77,7 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		"hasAvatar":        hasAvatar,
 		"gravatarURL":      gravatarURL,
 		"steamAccount":     steamAccount,
+		"xboxAccount":      xboxAccount,
 		"steamImportJob":   steamImportJob,
 		"importJobSummary": i18n.ImportJobSummary(steamImportJob, locale),
 		"locale":           locale,

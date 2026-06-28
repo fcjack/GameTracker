@@ -79,7 +79,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = crypto.NewEncrypter(encryptionKey)
+	encrypter, err := crypto.NewEncrypter(encryptionKey)
 	if err != nil {
 		logger.Error("invalid ENCRYPTION_KEY", "error", err)
 		os.Exit(1)
@@ -136,6 +136,7 @@ func main() {
 	}
 
 	steam := handlers.NewSteamHandler(db, importService)
+	xboxHandler := handlers.NewXboxHandler(db, encrypter)
 	importHandler := handlers.NewImportHandler(db, importService)
 	library := handlers.NewLibraryHandler(db, igdbClient)
 
@@ -158,6 +159,8 @@ func main() {
 		protected.GET("/profile/avatar", profile.ServeAvatar)
 		protected.GET("/auth/steam", steam.Initiate)
 		protected.GET("/auth/steam/callback", steam.Callback)
+		protected.GET("/auth/xbox", xboxHandler.Initiate)
+		protected.GET("/auth/xbox/callback", xboxHandler.Callback)
 		protected.POST("/profile/steam/import", importHandler.StartSteamImport)
 		protected.POST("/profile/steam/clear-library", importHandler.ClearSteamLibrary)
 		protected.GET("/profile/steam/import-status", importHandler.SteamImportStatus)

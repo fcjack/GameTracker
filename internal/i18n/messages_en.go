@@ -59,6 +59,9 @@ var enMessages = map[string]string{
 	"error.invalid_steam_response":     "Invalid Steam response",
 	"error.invalid_steam_id":           "Invalid Steam ID",
 	"error.link_account_failed":        "Failed to link account",
+	"error.xbox_not_configured":        "Xbox linking is not configured on this server",
+	"error.xbox_auth_failed":           "Xbox authentication failed",
+	"error.xbox_auth_denied":           "Xbox sign-in was cancelled or denied",
 	"error.search_failed":              "Search failed. Please try again.",
 	"error.update_locale_failed":       "Failed to update language",
 
@@ -146,6 +149,7 @@ var enMessages = map[string]string{
 	"profile.language_updated":             "Language updated.",
 	"profile.steam":                        "Steam",
 	"profile.xbox":                         "Xbox",
+	"profile.xbox_library_coming_soon":     "Library import for Xbox is coming soon.",
 
 	"import.importing":              "Importing Steam library…",
 	"import.processed_games":        "Processed %d game from Steam.",

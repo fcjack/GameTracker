@@ -59,6 +59,9 @@ var ptBRMessages = map[string]string{
 	"error.invalid_steam_response":     "Resposta Steam inválida",
 	"error.invalid_steam_id":           "Steam ID inválido",
 	"error.link_account_failed":        "Falha ao vincular conta",
+	"error.xbox_not_configured":        "A vinculação Xbox não está configurada neste servidor",
+	"error.xbox_auth_failed":           "Falha na autenticação Xbox",
+	"error.xbox_auth_denied":           "O login Xbox foi cancelado ou negado",
 	"error.search_failed":              "Falha na busca. Tente novamente.",
 	"error.update_locale_failed":       "Falha ao atualizar o idioma",
 
@@ -146,6 +149,7 @@ var ptBRMessages = map[string]string{
 	"profile.language_updated":             "Idioma atualizado.",
 	"profile.steam":                        "Steam",
 	"profile.xbox":                         "Xbox",
+	"profile.xbox_library_coming_soon":     "A importação da biblioteca Xbox estará disponível em breve.",
 
 	"import.importing":              "Importando biblioteca Steam…",
 	"import.processed_games":        "Processado %d jogo da Steam.",
