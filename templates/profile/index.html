@@ -156,20 +156,20 @@
             <div class="space-y-4">
                 <!-- Steam Account -->
                 <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div class="flex items-center justify-between">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div class="flex items-center gap-3">
                             <i class="fab fa-steam text-lg" style="color: #1b9ffa;"></i>
-                            <div>
+                            <div class="min-w-0">
                                 <p class="font-medium">{{call .T "profile.steam"}}</p>
                                 {{if .steamAccount}}
-                                <p class="text-sm text-gray-400">{{.steamAccount.DisplayName}} ({{.steamAccount.ExternalID}})</p>
+                                <p class="text-sm text-gray-400 break-all">{{.steamAccount.DisplayName}} ({{.steamAccount.ExternalID}})</p>
                                 {{else}}
                                 <p class="text-sm text-gray-400">{{call .T "profile.not_linked"}}</p>
                                 {{end}}
                             </div>
                         </div>
                         {{if .steamAccount}}
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                             {{if not (and .steamImportJob .steamImportJob.IsActive)}}
                             <form method="POST" action="/profile/steam/import">
                                 <button type="submit"
@@ -188,7 +188,7 @@
                             <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">{{call .T "profile.linked"}}</span>
                         </div>
                         {{else}}
-                        <a href="/auth/steam" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors">
+                        <a href="/auth/steam" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
                             {{call .T "profile.link_account"}}
                         </a>
                         {{end}}
@@ -200,15 +200,15 @@
                 </div>
 
                 <!-- Xbox Account (Placeholder for future) -->
-                <div class="flex items-center justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-gray-800 rounded-lg border border-gray-700">
                     <div class="flex items-center gap-3">
                         <i class="fab fa-xbox text-lg" style="color: #107c10;"></i>
-                        <div>
+                        <div class="min-w-0">
                             <p class="font-medium">{{call .T "profile.xbox"}}</p>
                             <p class="text-sm text-gray-400">{{call .T "profile.coming_soon"}}</p>
                         </div>
                     </div>
-                    <span class="text-xs bg-gray-700 text-gray-400 px-3 py-1 rounded-full">{{call .T "profile.coming_soon"}}</span>
+                    <span class="text-xs bg-gray-700 text-gray-400 px-3 py-1 rounded-full self-start sm:self-auto">{{call .T "profile.coming_soon"}}</span>
                 </div>
             </div>
         </div>
