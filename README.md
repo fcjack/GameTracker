@@ -117,7 +117,8 @@ After the app is running, open **Profile** to link external accounts and sync li
 
 1. Create a [Steam Web API key](https://steamcommunity.com/dev/apikey) and set `STEAM_API_KEY`.
 2. On Profile, click **Link Account** under Steam (OpenID — no extra redirect URI setup).
-3. Use **Sync Library** to import owned games. **Clear Steam games** removes only Steam-platform
+   Linking starts an initial library import automatically.
+3. Use **Sync Library** to re-import later. **Clear Steam games** removes only Steam-platform
    entries from your local library so you can re-sync from scratch.
 
 #### Xbox
@@ -131,7 +132,8 @@ After the app is running, open **Profile** to link external accounts and sync li
    The app requests `xboxlive.signin` and `xboxlive.offline_access` so tokens can be refreshed
    for background library sync.
 3. On Profile, click **Link Account** under Xbox and sign in with your Microsoft account.
-4. Use **Sync Library** to import your Xbox title history. **Clear Xbox games** removes only
+   Linking starts an initial library import automatically.
+4. Use **Sync Library** to re-import later. **Clear Xbox games** removes only
    Xbox-platform entries from your local library.
 
 #### IGDB (optional but recommended)

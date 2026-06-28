@@ -136,7 +136,7 @@ func main() {
 	}
 
 	steam := handlers.NewSteamHandler(db, importService)
-	xboxHandler := handlers.NewXboxHandler(db, encrypter)
+	xboxHandler := handlers.NewXboxHandler(db, encrypter, importService)
 	importHandler := handlers.NewImportHandler(db, importService)
 	library := handlers.NewLibraryHandler(db, igdbClient)
 

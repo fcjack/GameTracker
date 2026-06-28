@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,17 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/models"
 	"github.com/jacksoncoelho/game-tracker/internal/xbox"
 )
+
+type fakeXboxImporter struct {
+	called bool
+	userID int64
+}
+
+func (f *fakeXboxImporter) StartXboxImport(_ context.Context, userID int64) (*models.ImportJob, error) {
+	f.called = true
+	f.userID = userID
+	return &models.ImportJob{UserID: userID, Provider: "xbox"}, nil
+}
 
 func TestXboxInitiate(t *testing.T) {
 	t.Parallel()
@@ -130,10 +142,12 @@ func TestXboxCallbackSuccess(t *testing.T) {
 	client := xbox.NewClientWithHTTP("client-id", "client-secret", tokenServer.Client())
 	client.SetEndpoints(tokenServer.URL, userServer.URL, xstsServer.URL)
 
+	importer := &fakeXboxImporter{}
 	h := &XboxHandler{
-		db:        db,
-		client:    client,
-		encrypter: encrypter,
+		db:            db,
+		client:        client,
+		encrypter:     encrypter,
+		importService: importer,
 	}
 
 	router := gin.New()
@@ -178,6 +192,12 @@ func TestXboxCallbackSuccess(t *testing.T) {
 	}
 	if account.AccessTokenEnc == "" || account.RefreshTokenEnc == "" {
 		t.Error("expected encrypted OAuth tokens to be stored")
+	}
+	if !importer.called {
+		t.Fatal("expected StartXboxImport to be called after linking")
+	}
+	if importer.userID != user.ID {
+		t.Errorf("StartXboxImport user_id = %d, want %d", importer.userID, user.ID)
 	}
 }
 

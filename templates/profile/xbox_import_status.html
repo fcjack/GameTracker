@@ -10,7 +10,7 @@
         <span class="text-gray-400 tabular-nums">{{$job.ProcessedCount}} / {{$job.TotalCount}}</span>
     </div>
     <div class="h-2 w-full rounded-full bg-gray-700 overflow-hidden">
-        <div class="h-full rounded-full bg-green-500 transition-all duration-500"
+        <div class="h-full rounded-full bg-green-700 transition-all duration-500"
              style="width: {{$job.ProgressPercent}}%"></div>
     </div>
     {{else if eq $job.Status "completed"}}

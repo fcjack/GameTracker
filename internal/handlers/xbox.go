@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -18,16 +19,22 @@ import (
 const xboxOAuthStateKey = "xbox_oauth_state"
 
 type XboxHandler struct {
-	db        *pgxpool.Pool
-	client    *xbox.Client
-	encrypter *crypto.Encrypter
+	db            *pgxpool.Pool
+	client        *xbox.Client
+	encrypter     *crypto.Encrypter
+	importService xboxImportStarter
 }
 
-func NewXboxHandler(db *pgxpool.Pool, encrypter *crypto.Encrypter) *XboxHandler {
+type xboxImportStarter interface {
+	StartXboxImport(ctx context.Context, userID int64) (*models.ImportJob, error)
+}
+
+func NewXboxHandler(db *pgxpool.Pool, encrypter *crypto.Encrypter, importService xboxImportStarter) *XboxHandler {
 	return &XboxHandler{
-		db:        db,
-		client:    xbox.NewClient(os.Getenv("XBOX_CLIENT_ID"), os.Getenv("XBOX_CLIENT_SECRET")),
-		encrypter: encrypter,
+		db:            db,
+		client:        xbox.NewClient(os.Getenv("XBOX_CLIENT_ID"), os.Getenv("XBOX_CLIENT_SECRET")),
+		encrypter:     encrypter,
+		importService: importService,
 	}
 }
 
@@ -121,6 +128,10 @@ func (h *XboxHandler) Callback(c *gin.Context) {
 	if err != nil {
 		c.Redirect(http.StatusFound, "/profile?error=error.link_account_failed")
 		return
+	}
+
+	if h.importService != nil {
+		_, _ = h.importService.StartXboxImport(c.Request.Context(), userID)
 	}
 
 	c.Redirect(http.StatusFound, "/profile")
