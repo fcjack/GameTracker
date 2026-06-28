@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.5.0](https://github.com/fcjack/GameTracker/compare/v0.4.0...v0.5.0) (2026-06-28)
+
+
+### Features
+
+* **library:** add platform filter to library page ([9f36590](https://github.com/fcjack/GameTracker/commit/9f36590a1de4e8c64f5708686088484b480b40f0))
+* **profile:** add Steam and Xbox account unlink ([a6289c9](https://github.com/fcjack/GameTracker/commit/a6289c92dda92f296e670e1f78db934d46f3ff1e))
+
 ## [0.4.0](https://github.com/fcjack/GameTracker/compare/v0.3.0...v0.4.0) (2026-06-28)
 
 
