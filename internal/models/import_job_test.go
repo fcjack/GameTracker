@@ -218,3 +218,58 @@ func TestHasActiveImportJob(t *testing.T) {
 		t.Fatal("expected no active job after fail")
 	}
 }
+
+func TestFailActiveImportJob(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	ok, err := FailActiveImportJob(ctx, db, user.ID, "xbox", "Import cancelled.")
+	if err != nil {
+		t.Fatalf("FailActiveImportJob() with no job error = %v", err)
+	}
+	if ok {
+		t.Fatal("FailActiveImportJob() = true, want false when no active job")
+	}
+
+	job, err := CreateImportJob(ctx, db, user.ID, "xbox")
+	if err != nil {
+		t.Fatalf("CreateImportJob() error = %v", err)
+	}
+	if err := SetImportJobTotal(ctx, db, job.ID, 10); err != nil {
+		t.Fatalf("SetImportJobTotal() error = %v", err)
+	}
+
+	ok, err = FailActiveImportJob(ctx, db, user.ID, "xbox", "Import cancelled.")
+	if err != nil {
+		t.Fatalf("FailActiveImportJob() error = %v", err)
+	}
+	if !ok {
+		t.Fatal("FailActiveImportJob() = false, want true")
+	}
+
+	got, err := GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.Status != "failed" {
+		t.Errorf("status = %q, want failed", got.Status)
+	}
+	if got.ErrorMessage != "Import cancelled." {
+		t.Errorf("error_message = %q", got.ErrorMessage)
+	}
+
+	active, err := HasActiveImportJob(ctx, db, user.ID, "xbox")
+	if err != nil {
+		t.Fatalf("HasActiveImportJob() error = %v", err)
+	}
+	if active {
+		t.Fatal("expected no active job after cancel")
+	}
+}

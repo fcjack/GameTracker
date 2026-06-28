@@ -120,7 +120,7 @@ func CompleteImportJob(ctx context.Context, db *pgxpool.Pool, jobID int64) error
 	const query = `
 		UPDATE import_jobs
 		SET status = 'completed', completed_at = NOW(), updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND status IN ('pending', 'running')
 	`
 	_, err := db.Exec(ctx, query, jobID)
 	return err
@@ -130,10 +130,32 @@ func FailImportJob(ctx context.Context, db *pgxpool.Pool, jobID int64, message s
 	const query = `
 		UPDATE import_jobs
 		SET status = 'failed', error_message = $2, completed_at = NOW(), updated_at = NOW()
-		WHERE id = $1
+		WHERE id = $1 AND status IN ('pending', 'running')
 	`
 	_, err := db.Exec(ctx, query, jobID, message)
 	return err
+}
+
+// FailActiveImportJob marks the user's in-progress import for a provider as failed.
+func FailActiveImportJob(ctx context.Context, db *pgxpool.Pool, userID int64, provider, message string) (bool, error) {
+	const query = `
+		UPDATE import_jobs
+		SET status = 'failed', error_message = $3, completed_at = NOW(), updated_at = NOW()
+		WHERE user_id = $1 AND provider = $2 AND status IN ('pending', 'running')
+	`
+	tag, err := db.Exec(ctx, query, userID, provider, message)
+	if err != nil {
+		return false, err
+	}
+	return tag.RowsAffected() > 0, nil
+}
+
+func IsImportJobActive(ctx context.Context, db *pgxpool.Pool, jobID int64) (bool, error) {
+	job, err := GetImportJob(ctx, db, jobID)
+	if err != nil {
+		return false, err
+	}
+	return job.IsActive(), nil
 }
 
 func (j *ImportJob) ProgressPercent() int {

@@ -103,6 +103,9 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 
 	var processed, imported, skipped int
 	for _, g := range owned {
+		if importJobCancelled(ctx, s.db, jobID) {
+			return
+		}
 		processed++
 
 		if _, exists := alreadyImported[g.TitleID]; exists {
@@ -146,6 +149,10 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 				"error", err,
 			)
 		}
+	}
+
+	if importJobCancelled(ctx, s.db, jobID) {
+		return
 	}
 
 	if err := models.CompleteImportJob(ctx, s.db, jobID); err != nil {

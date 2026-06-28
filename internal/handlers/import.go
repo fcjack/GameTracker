@@ -99,6 +99,30 @@ func (h *ImportHandler) ClearSteamLibrary(c *gin.Context) {
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?steam_cleared=%d", removed))
 }
 
+func (h *ImportHandler) CancelSteamImport(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	locale := LocaleFromContext(c)
+
+	_, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "steam")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.steam_not_linked")
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
+		return
+	}
+
+	_, err = h.service.CancelImport(c.Request.Context(), userID, "steam", i18n.T(locale, "import.cancelled"))
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/profile")
+}
+
 func (h *ImportHandler) XboxImportStatus(c *gin.Context) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
@@ -174,4 +198,28 @@ func (h *ImportHandler) ClearXboxLibrary(c *gin.Context) {
 	}
 
 	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?xbox_cleared=%d", removed))
+}
+
+func (h *ImportHandler) CancelXboxImport(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	locale := LocaleFromContext(c)
+
+	_, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "xbox")
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			c.Redirect(http.StatusSeeOther, "/profile?error=error.xbox_not_linked")
+			return
+		}
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
+		return
+	}
+
+	_, err = h.service.CancelImport(c.Request.Context(), userID, "xbox", i18n.T(locale, "import.cancelled"))
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
+		return
+	}
+
+	c.Redirect(http.StatusSeeOther, "/profile")
 }

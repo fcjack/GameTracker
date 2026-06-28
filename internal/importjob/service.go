@@ -164,6 +164,9 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 	}
 
 	for _, g := range games {
+		if importJobCancelled(ctx, s.db, jobID) {
+			return
+		}
 		processed++
 
 		if _, exists := alreadyImported[g.AppID]; exists {
@@ -215,6 +218,10 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 				"error", err,
 			)
 		}
+	}
+
+	if importJobCancelled(ctx, s.db, jobID) {
+		return
 	}
 
 	if err := models.CompleteImportJob(ctx, s.db, jobID); err != nil {

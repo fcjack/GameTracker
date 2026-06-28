@@ -331,6 +331,55 @@ func TestXboxImportStatusWithJob(t *testing.T) {
 	}
 }
 
+func TestCancelXboxImportStopsActiveJob(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "xbox", "2535465432123456", "Gamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+	job, err := models.CreateImportJob(ctx, db, user.ID, "xbox")
+	if err != nil {
+		t.Fatalf("CreateImportJob() error = %v", err)
+	}
+	if err := models.SetImportJobTotal(ctx, db, job.ID, 10); err != nil {
+		t.Fatalf("SetImportJobTotal() error = %v", err)
+	}
+
+	svc := importjob.NewServiceWithProviders(db, igdb.NewClient("id", "secret", "http://localhost"), nil, nil, xbox.NewClient("id", "secret"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/xbox/import-cancel", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if loc := w.Header().Get("Location"); loc != "/profile" {
+		t.Errorf("redirect = %q, want /profile", loc)
+	}
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.Status != "failed" {
+		t.Errorf("status = %q, want failed", got.Status)
+	}
+	active, err := models.HasActiveImportJob(ctx, db, user.ID, "xbox")
+	if err != nil {
+		t.Fatalf("HasActiveImportJob() error = %v", err)
+	}
+	if active {
+		t.Fatal("expected no active job after cancel")
+	}
+}
+
 func serveImportRequest(t *testing.T, h *ImportHandler, userID int64, method, path string, body *strings.Reader) *httptest.ResponseRecorder {
 	t.Helper()
 	router := newImportTestRouter(h)
@@ -344,9 +393,11 @@ func newImportTestRouter(h *ImportHandler) *gin.Engine {
 	router.SetHTMLTemplate(loadAllTemplates(filepath.Join("templates")))
 	router.POST("/profile/steam/import", h.StartSteamImport)
 	router.POST("/profile/steam/clear-library", h.ClearSteamLibrary)
+	router.POST("/profile/steam/import-cancel", h.CancelSteamImport)
 	router.GET("/profile/steam/import-status", h.SteamImportStatus)
 	router.POST("/profile/xbox/import", h.StartXboxImport)
 	router.POST("/profile/xbox/clear-library", h.ClearXboxLibrary)
+	router.POST("/profile/xbox/import-cancel", h.CancelXboxImport)
 	router.GET("/profile/xbox/import-status", h.XboxImportStatus)
 	return router
 }

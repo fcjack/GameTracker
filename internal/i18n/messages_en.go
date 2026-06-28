@@ -57,6 +57,7 @@ var enMessages = map[string]string{
 	"error.import_in_progress":         "Wait for the current import to finish before clearing Steam games",
 	"error.xbox_not_linked":            "Xbox account not linked",
 	"error.clear_xbox_library_failed":  "Failed to clear Xbox library",
+	"error.cancel_import_failed":       "Failed to cancel import",
 	"error.steam_verification_failed":  "Steam verification failed",
 	"error.invalid_steam_response":     "Invalid Steam response",
 	"error.invalid_steam_id":           "Invalid Steam ID",
@@ -147,6 +148,8 @@ var enMessages = map[string]string{
 	"profile.clear_xbox_library_confirm":   "Remove all Xbox games from your local library? This cannot be undone, but you can sync again afterward.",
 	"profile.xbox_library_cleared":         "Removed %d Xbox game from your library.",
 	"profile.xbox_library_cleared_plural":  "Removed %d Xbox games from your library.",
+	"profile.cancel_import":                "Cancel import",
+	"profile.cancel_import_confirm":        "Cancel the current import? You can sync again afterward.",
 	"profile.link_account":                 "Link Account",
 	"profile.coming_soon":                  "Coming soon",
 	"profile.language":                     "Language",
@@ -171,4 +174,5 @@ var enMessages = map[string]string{
 	"import.imported_xbox_plural":           "Imported %d games from Xbox",
 	"import.skipped_suffix":         " (%d skipped)",
 	"import.failed":                 "Import failed.",
+	"import.cancelled":              "Import cancelled.",
 }

@@ -57,6 +57,7 @@ var ptBRMessages = map[string]string{
 	"error.import_in_progress":         "Aguarde a importação atual terminar antes de limpar os jogos Steam",
 	"error.xbox_not_linked":            "Conta Xbox não vinculada",
 	"error.clear_xbox_library_failed":  "Falha ao limpar biblioteca Xbox",
+	"error.cancel_import_failed":       "Falha ao cancelar a importação",
 	"error.steam_verification_failed":  "Falha na verificação Steam",
 	"error.invalid_steam_response":     "Resposta Steam inválida",
 	"error.invalid_steam_id":           "Steam ID inválido",
@@ -147,6 +148,8 @@ var ptBRMessages = map[string]string{
 	"profile.clear_xbox_library_confirm":   "Remover todos os jogos Xbox da sua biblioteca local? Isso não pode ser desfeito, mas você pode sincronizar novamente depois.",
 	"profile.xbox_library_cleared":         "Removido %d jogo Xbox da sua biblioteca.",
 	"profile.xbox_library_cleared_plural":  "Removidos %d jogos Xbox da sua biblioteca.",
+	"profile.cancel_import":                "Cancelar importação",
+	"profile.cancel_import_confirm":        "Cancelar a importação atual? Você pode sincronizar novamente depois.",
 	"profile.link_account":                 "Vincular conta",
 	"profile.coming_soon":                  "Em breve",
 	"profile.language":                     "Idioma",
@@ -171,4 +174,5 @@ var ptBRMessages = map[string]string{
 	"import.imported_xbox_plural":           "Importados %d jogos do Xbox",
 	"import.skipped_suffix":         " (%d ignorados)",
 	"import.failed":                 "Falha na importação.",
+	"import.cancelled":              "Importação cancelada.",
 }

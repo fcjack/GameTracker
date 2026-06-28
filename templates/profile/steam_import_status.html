@@ -13,6 +13,14 @@
         <div class="h-full rounded-full bg-blue-500 transition-all duration-500"
              style="width: {{$job.ProgressPercent}}%"></div>
     </div>
+    <form method="POST" action="/profile/steam/import-cancel" class="mt-3"
+          data-confirm-msg="{{call .T "profile.cancel_import_confirm"}}"
+          onsubmit="return confirm(this.dataset.confirmMsg)">
+        <button type="submit"
+                class="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
+            {{call .T "profile.cancel_import"}}
+        </button>
+    </form>
     {{else if eq $job.Status "completed"}}
     <div class="flex items-start gap-2 text-sm">
         <i class="fas fa-check-circle text-green-400 mt-0.5"></i>
