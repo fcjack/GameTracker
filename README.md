@@ -188,6 +188,9 @@ make run       # Run locally without Docker
 make redeploy  # Rebuild and restart the app container
 make reset     # Reset database volumes and restart
 make tidy      # Tidy Go module dependencies
+make check     # Verify gofmt and golangci-lint (same as CI)
+make fix       # Apply gofmt and linter auto-fixes
+make install-hooks  # Git hooks: auto-fix on commit, check before push to main
 go test ./...  # Run tests
 ```
 

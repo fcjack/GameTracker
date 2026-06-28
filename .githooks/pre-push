@@ -1,0 +1,12 @@
+#!/bin/sh
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+while read local_ref local_sha remote_ref remote_sha; do
+	if [ "$remote_ref" = "refs/heads/main" ]; then
+		echo "pre-push: verifying fmt and lint before push to main..."
+		make check
+		break
+	fi
+done

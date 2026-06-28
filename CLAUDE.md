@@ -60,6 +60,15 @@ go test ./...
 # Run a single test
 go test ./internal/... -run TestName
 
+# Formatting and linting (CI lint job)
+make check      # verify gofmt + golangci-lint
+make fix        # apply gofmt and linter auto-fixes
+make fmt        # gofmt only
+make lint       # golangci-lint only
+
+# Install git hooks (pre-commit auto-fix; pre-push runs make check on push to main)
+make install-hooks
+
 # Rebuild static/css/app.css after changing Tailwind classes in templates/ (requires Node.js)
 make css
 ```
