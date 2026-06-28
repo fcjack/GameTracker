@@ -3,6 +3,8 @@
     </div>
 </div>
 
+{{template "layout/confirm_modal" .}}
+
 <style>
     #sidebar.sidebar-collapsed {
         width: 4rem;
@@ -28,6 +30,13 @@
     }
     #sidebar.sidebar-collapsed #sidebarCollapseBtn {
         justify-content: center;
+    }
+    #app-shell.htmx-swapping {
+        opacity: 0.65;
+        transition: opacity 150ms ease-in-out;
+    }
+    #confirm-modal {
+        z-index: 100;
     }
 </style>
 
@@ -125,7 +134,223 @@
 
     document.addEventListener('keydown', function(event) {
         if (event.key === 'Escape') {
+            if (closeConfirmDialog()) return;
             closeMobileSidebar();
+            closeLibraryFilters();
+        }
+    });
+
+    let confirmDialogCallback = null;
+
+    function showConfirmDialog(options) {
+        const modal = document.getElementById('confirm-modal');
+        const message = document.getElementById('confirm-modal-message');
+        const acceptBtn = document.getElementById('confirm-modal-accept');
+        if (!options.message || !modal || !message || !acceptBtn) {
+            if (options.onConfirm) options.onConfirm();
+            return;
+        }
+
+        message.textContent = options.message || '';
+
+        const destructive = options.destructive !== false;
+        acceptBtn.className = destructive
+            ? 'w-full sm:w-auto px-4 py-2.5 text-sm font-semibold rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors'
+            : 'w-full sm:w-auto px-4 py-2.5 text-sm font-semibold rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition-colors';
+
+        confirmDialogCallback = options.onConfirm || null;
+        modal.classList.remove('hidden');
+        document.body.classList.add('overflow-hidden');
+        acceptBtn.focus();
+    }
+
+    function closeConfirmDialog() {
+        const modal = document.getElementById('confirm-modal');
+        if (!modal || modal.classList.contains('hidden')) return false;
+
+        modal.classList.add('hidden');
+        document.body.classList.remove('overflow-hidden');
+        confirmDialogCallback = null;
+        return true;
+    }
+
+    function acceptConfirmDialog() {
+        const callback = confirmDialogCallback;
+        closeConfirmDialog();
+        if (callback) callback();
+    }
+
+    document.addEventListener('submit', function(event) {
+        const form = event.target;
+        if (!(form instanceof HTMLFormElement)) return;
+
+        const message = form.dataset.confirm;
+        if (!message) return;
+
+        if (form.dataset.confirmApproved === 'true') {
+            delete form.dataset.confirmApproved;
+            return;
+        }
+
+        event.preventDefault();
+        showConfirmDialog({
+            message: message,
+            destructive: form.dataset.confirmDestructive !== 'false',
+            onConfirm: function() {
+                form.dataset.confirmApproved = 'true';
+                form.requestSubmit();
+            }
+        });
+    });
+
+    document.body.addEventListener('htmx:confirm', function(event) {
+        if (!event.detail.question) return;
+
+        event.preventDefault();
+        showConfirmDialog({
+            message: event.detail.question,
+            destructive: true,
+            onConfirm: function() {
+                event.detail.issueRequest(true);
+            }
+        });
+    });
+
+    function clearSearch() {
+        const searchInput = document.querySelector('input[name="q"]');
+        if (searchInput) {
+            searchInput.value = '';
+        }
+        const searchResults = document.getElementById('search-results');
+        if (searchResults) {
+            searchResults.innerHTML = '';
+        }
+    }
+
+    function refreshLibrary() {
+        htmx.trigger(document.body, 'libraryUpdated');
+    }
+
+    const navActiveClasses = ['bg-gray-800', 'text-white'];
+    const navInactiveClasses = ['text-gray-300', 'hover:text-white', 'hover:bg-gray-800'];
+
+    function updateActiveNav(pathname) {
+        const navLinks = document.querySelectorAll('#sidebar nav a.sidebar-link');
+        navLinks.forEach(function(link) {
+            const href = link.getAttribute('href');
+            const active = href === pathname;
+            navActiveClasses.forEach(function(cls) { link.classList.toggle(cls, active); });
+            navInactiveClasses.forEach(function(cls) { link.classList.toggle(cls, !active); });
+        });
+    }
+
+    function syncPageTitle() {
+        const main = document.querySelector('#app-shell main[data-page-title]');
+        if (main) {
+            document.title = main.dataset.pageTitle;
+        }
+    }
+
+    function toggleLibraryFilters() {
+        const panel = document.getElementById('library-filter-panel');
+        const toggle = document.getElementById('library-filter-toggle');
+        if (!panel || !toggle) return;
+
+        const isHidden = panel.classList.toggle('hidden');
+        toggle.setAttribute('aria-expanded', isHidden ? 'false' : 'true');
+        toggle.classList.toggle('bg-indigo-600', !isHidden);
+        toggle.classList.toggle('border-indigo-500', !isHidden);
+        toggle.classList.toggle('text-white', !isHidden);
+        toggle.classList.toggle('bg-gray-800', isHidden);
+        toggle.classList.toggle('border-gray-700', isHidden);
+        toggle.classList.toggle('text-gray-300', isHidden);
+    }
+
+    function closeLibraryFilters() {
+        const panel = document.getElementById('library-filter-panel');
+        const toggle = document.getElementById('library-filter-toggle');
+        if (!panel || panel.classList.contains('hidden')) return;
+
+        panel.classList.add('hidden');
+        if (toggle) {
+            toggle.setAttribute('aria-expanded', 'false');
+            toggle.classList.remove('bg-indigo-600', 'border-indigo-500', 'text-white');
+            toggle.classList.add('bg-gray-800', 'border-gray-700', 'text-gray-300');
+        }
+    }
+
+    function updateLibraryFilterUI() {
+        const dot = document.getElementById('library-filter-active-dot');
+        const chips = document.getElementById('library-active-filters');
+        if (!dot && !chips) return;
+
+        const platformInput = document.querySelector('[name="platform"]:checked');
+        const groupInput = document.querySelector('[name="group_by"]:checked');
+        const active = [];
+
+        if (platformInput && platformInput.value !== '') {
+            active.push(platformInput.dataset.filterLabel || platformInput.value);
+        }
+        if (groupInput && groupInput.value !== '') {
+            active.push(groupInput.dataset.filterLabel || groupInput.value);
+        }
+
+        if (dot) {
+            dot.classList.toggle('hidden', active.length === 0);
+        }
+
+        if (chips) {
+            chips.innerHTML = '';
+            active.forEach(function(label) {
+                const chip = document.createElement('span');
+                chip.className = 'inline-flex items-center rounded-full border border-indigo-700 bg-indigo-950 px-3 py-1 text-sm text-indigo-200 leading-none';
+                chip.textContent = label;
+                chips.appendChild(chip);
+            });
+            chips.classList.toggle('hidden', active.length === 0);
+        }
+    }
+
+    function resetLibraryFilters() {
+        const platformDefault = document.querySelector('[name="platform"][value=""]');
+        const groupDefault = document.querySelector('[name="group_by"][value=""]');
+        let changed = false;
+
+        if (platformDefault && !platformDefault.checked) {
+            platformDefault.checked = true;
+            changed = true;
+        }
+        if (groupDefault && !groupDefault.checked) {
+            groupDefault.checked = true;
+            changed = true;
+        }
+
+        if (changed) {
+            const trigger = platformDefault || groupDefault;
+            htmx.trigger(trigger, 'change');
+        } else {
+            updateLibraryFilterUI();
+        }
+    }
+
+    document.addEventListener('change', function(event) {
+        if (event.target.matches('[name="platform"], [name="group_by"]')) {
+            updateLibraryFilterUI();
+        }
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        updateActiveNav(window.location.pathname);
+        updateLibraryFilterUI();
+    });
+
+    document.body.addEventListener('htmx:afterSettle', function(event) {
+        if (event.detail.target?.id === 'app-shell') {
+            closeConfirmDialog();
+            updateActiveNav(window.location.pathname);
+            syncPageTitle();
+            closeMobileSidebar();
+            updateLibraryFilterUI();
         }
     });
 </script>

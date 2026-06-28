@@ -102,6 +102,9 @@ var ptBRMessages = map[string]string{
 	"library.group_platform":     "Plataforma",
 	"library.group_year":         "Ano",
 	"library.group_active":       "Ativos",
+	"library.group_unknown_year": "Ano desconhecido",
+	"library.filters":            "Filtros",
+	"library.clear_filters":      "Limpar filtros",
 	"library.no_games_found":     "Nenhum jogo encontrado.",
 
 	"status.owned":     "Possui",

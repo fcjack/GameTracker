@@ -123,6 +123,38 @@ func GroupUserGamesByCompletionYear(games []*UserGameWithGame) []GamesByYear {
 	return groups
 }
 
+// GroupUserGamesByReleaseYear groups library entries by game release year (newest first).
+func GroupUserGamesByReleaseYear(games []*UserGameWithGame) []GamesByYear {
+	byYear := make(map[int][]*UserGameWithGame)
+	var unknown []*UserGameWithGame
+
+	for _, g := range games {
+		if g.ReleaseYear <= 0 {
+			unknown = append(unknown, g)
+			continue
+		}
+		byYear[g.ReleaseYear] = append(byYear[g.ReleaseYear], g)
+	}
+
+	years := make([]int, 0, len(byYear))
+	for y := range byYear {
+		years = append(years, y)
+	}
+	sort.Sort(sort.Reverse(sort.IntSlice(years)))
+
+	groups := make([]GamesByYear, 0, len(years)+1)
+	for _, y := range years {
+		groups = append(groups, GamesByYear{
+			Label: fmt.Sprintf("%d", y),
+			Games: byYear[y],
+		})
+	}
+	if len(unknown) > 0 {
+		groups = append(groups, GamesByYear{Label: "Unknown", Games: unknown})
+	}
+	return groups
+}
+
 func FindOrCreateGame(
 	ctx context.Context,
 	db *pgxpool.Pool,

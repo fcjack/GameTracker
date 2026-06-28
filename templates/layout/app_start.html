@@ -27,6 +27,10 @@
 
         <nav class="flex-1 overflow-y-auto py-2">
             <a href="/dashboard"
+               hx-boost="true"
+               hx-target="#app-shell"
+               hx-select="#app-shell"
+               hx-swap="outerHTML show:window:top"
                onclick="closeMobileSidebar()"
                title="{{call .T "nav.dashboard"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
@@ -35,6 +39,10 @@
                 <span class="sidebar-label truncate">{{call .T "nav.dashboard"}}</span>
             </a>
             <a href="/library"
+               hx-boost="true"
+               hx-target="#app-shell"
+               hx-select="#app-shell"
+               hx-swap="outerHTML show:window:top"
                onclick="closeMobileSidebar()"
                title="{{call .T "nav.library"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
@@ -43,6 +51,10 @@
                 <span class="sidebar-label truncate">{{call .T "nav.library"}}</span>
             </a>
             <a href="/profile"
+               hx-boost="true"
+               hx-target="#app-shell"
+               hx-select="#app-shell"
+               hx-swap="outerHTML show:window:top"
                onclick="closeMobileSidebar()"
                title="{{call .T "nav.profile"}}"
                class="sidebar-link flex items-center gap-3 mx-2 px-3 py-2.5 rounded-lg text-sm transition-colors
@@ -75,7 +87,7 @@
         </div>
     </aside>
 
-    <div class="flex-1 flex flex-col min-w-0">
+    <div id="app-shell" class="flex-1 flex flex-col min-w-0">
         <header class="sticky top-0 z-20 h-14 border-b border-gray-800 bg-gray-900
                        flex items-center gap-3 px-4 shrink-0">
             <button type="button"
@@ -88,6 +100,10 @@
                 <i class="fas fa-bars text-lg"></i>
             </button>
             <a href="/dashboard"
+               hx-boost="true"
+               hx-target="#app-shell"
+               hx-select="#app-shell"
+               hx-swap="outerHTML show:window:top"
                class="md:hidden font-bold text-white truncate min-w-0">
                 {{call .T "app.name"}}
             </a>

@@ -13,7 +13,8 @@
 <body class="min-h-screen bg-gray-950 text-white">
     {{template "layout/app_start" .}}
 
-    <main class="max-w-5xl mx-auto px-4 py-10 w-full">
+    <main class="max-w-5xl mx-auto px-4 py-10 w-full"
+          data-page-title="{{call .T "dashboard.title"}} — {{call .T "app.name"}}">
         <div class="mb-8">
             <h2 class="text-2xl font-bold">{{call .T "dashboard.welcome_back" .username}}</h2>
             {{if .hasGames}}
@@ -49,17 +50,11 @@
         </div>
 
         <div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
-                <div>
-                    <h2 class="text-xl font-bold">{{call .T "dashboard.my_library"}}</h2>
-                    <p class="text-sm text-gray-500 mt-0.5">{{call .T "dashboard.my_library_active_hint"}}</p>
-                </div>
-                {{template "library/group_by_control" .}}
-            </div>
+            {{template "library/library_filters" .}}
             <div id="library-section"
                  hx-get="{{.libraryGridURL}}"
                  hx-trigger="load, libraryUpdated from:body"
-                 hx-include="[name='group_by']:checked"
+                 hx-include="[name='group_by']:checked, [name='platform']:checked"
                  hx-swap="innerHTML"
                  class="min-h-[200px]">
                 {{call .T "dashboard.loading_library"}}
@@ -68,23 +63,6 @@
     </main>
 
     {{template "layout/app_end" .}}
-
-    <script>
-        function clearSearch() {
-            const searchInput = document.querySelector('input[name="q"]');
-            if (searchInput) {
-                searchInput.value = '';
-            }
-            const searchResults = document.getElementById('search-results');
-            if (searchResults) {
-                searchResults.innerHTML = '';
-            }
-        }
-
-        function refreshLibrary() {
-            htmx.trigger(document.body, 'libraryUpdated');
-        }
-    </script>
 </body>
 </html>
 {{end}}

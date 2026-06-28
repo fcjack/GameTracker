@@ -13,7 +13,8 @@
 <body class="min-h-screen bg-gray-950 text-white">
     {{template "layout/app_start" .}}
 
-    <main class="max-w-5xl mx-auto px-4 py-10 w-full">
+    <main class="max-w-5xl mx-auto px-4 py-10 w-full"
+          data-page-title="{{call .T "profile.title"}} — {{call .T "app.name"}}">
         <h1 class="text-3xl font-bold mb-10">{{call .T "profile.title"}}</h1>
 
         {{if .error}}
@@ -196,14 +197,14 @@
                                 </button>
                             </form>
                             <form method="POST" action="/profile/steam/clear-library"
-                                  onsubmit="return confirm('{{call .T "profile.clear_steam_library_confirm"}}')">
+                                  data-confirm="{{call .T "profile.clear_steam_library_confirm"}}">
                                 <button type="submit"
                                         class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
                                     {{call .T "profile.clear_steam_library"}}
                                 </button>
                             </form>
                             <form method="POST" action="/profile/steam/unlink"
-                                  onsubmit="return confirm('{{call .T "profile.unlink_steam_confirm"}}')">
+                                  data-confirm="{{call .T "profile.unlink_steam_confirm"}}">
                                 <button type="submit"
                                         class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
                                     {{call .T "profile.unlink_account"}}
@@ -213,7 +214,7 @@
                             <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">{{call .T "profile.linked"}}</span>
                         </div>
                         {{else}}
-                        <a href="/auth/steam" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
+                        <a href="/auth/steam" hx-boost="false" class="bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
                             {{call .T "profile.link_account"}}
                         </a>
                         {{end}}
@@ -248,14 +249,14 @@
                                 </button>
                             </form>
                             <form method="POST" action="/profile/xbox/clear-library"
-                                  onsubmit="return confirm('{{call .T "profile.clear_xbox_library_confirm"}}')">
+                                  data-confirm="{{call .T "profile.clear_xbox_library_confirm"}}">
                                 <button type="submit"
                                         class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
                                     {{call .T "profile.clear_xbox_library"}}
                                 </button>
                             </form>
                             <form method="POST" action="/profile/xbox/unlink"
-                                  onsubmit="return confirm('{{call .T "profile.unlink_xbox_confirm"}}')">
+                                  data-confirm="{{call .T "profile.unlink_xbox_confirm"}}">
                                 <button type="submit"
                                         class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
                                     {{call .T "profile.unlink_account"}}
@@ -265,7 +266,7 @@
                             <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">{{call .T "profile.linked"}}</span>
                         </div>
                         {{else}}
-                        <a href="/auth/xbox" class="bg-green-700 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
+                        <a href="/auth/xbox" hx-boost="false" class="bg-green-700 hover:bg-green-600 text-white font-medium py-2 px-4 rounded-lg transition-colors text-center">
                             {{call .T "profile.link_account"}}
                         </a>
                         {{end}}

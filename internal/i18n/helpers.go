@@ -42,8 +42,12 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 }
 
 func GroupYearLabel(locale, label string) string {
-	if label == "Active" {
+	switch label {
+	case "Active":
 		return T(locale, "library.group_active")
+	case "Unknown":
+		return T(locale, "library.group_unknown_year")
+	default:
+		return label
 	}
-	return label
 }

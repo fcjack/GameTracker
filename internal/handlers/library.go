@@ -82,7 +82,7 @@ func toLibraryPlatformGroups(c *gin.Context, games []*models.UserGameWithGame) [
 }
 
 func toLibraryYearGroups(c *gin.Context, games []*models.UserGameWithGame) []libraryGameGroup {
-	grouped := models.GroupUserGamesByCompletionYear(games)
+	grouped := models.GroupUserGamesByReleaseYear(games)
 	groups := make([]libraryGameGroup, len(grouped))
 	for i, g := range grouped {
 		groups[i] = libraryGameGroup{

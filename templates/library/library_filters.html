@@ -1,0 +1,134 @@
+{{define "library/library_filters"}}
+{{$gridURL := "/library/games"}}{{if .libraryGridURL}}{{$gridURL = .libraryGridURL}}{{end}}
+{{$showPlatform := false}}
+{{if and .platforms (gt (len .platforms) 0)}}{{$showPlatform = true}}{{end}}
+
+<div class="library-filters mb-4">
+    <div class="flex items-center gap-3">
+        <button type="button"
+                id="library-filter-toggle"
+                onclick="toggleLibraryFilters()"
+                aria-expanded="false"
+                aria-controls="library-filter-panel"
+                title="{{call .T "library.filters"}}"
+                class="relative shrink-0 inline-flex items-center justify-center w-9 h-9 rounded-lg
+                       border border-gray-700 bg-gray-800 text-gray-300
+                       hover:text-white hover:border-gray-600 transition-colors">
+            <i class="fas fa-sliders text-sm"></i>
+            <span id="library-filter-active-dot"
+                  class="hidden absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full
+                         border-2 border-gray-900 bg-indigo-400"
+                  aria-hidden="true"></span>
+        </button>
+
+        <div class="flex-1 min-w-0">
+            {{if .filterSubtitle}}
+            <h2 class="text-xl font-bold leading-tight">
+                {{if .filterTitle}}{{call .T .filterTitle}}{{else}}{{call .T "library.my_library"}}{{end}}
+            </h2>
+            <p class="text-sm text-gray-500 mt-0.5">{{call .T .filterSubtitle}}</p>
+            {{else}}
+            <h2 class="text-xl font-bold leading-tight">
+                {{if .filterTitle}}{{call .T .filterTitle}}{{else}}{{call .T "library.my_library"}}{{end}}
+            </h2>
+            {{end}}
+        </div>
+    </div>
+
+    <div id="library-active-filters"
+         class="hidden flex flex-wrap items-center gap-2 mt-3 ml-12"></div>
+
+    <div id="library-filter-panel"
+         class="hidden mt-3 ml-12 bg-gray-900 border border-gray-800 rounded-xl p-4 space-y-5"
+         role="region"
+         aria-label="{{call .T "library.filters"}}">
+        {{if $showPlatform}}
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2.5">
+                {{call .T "library.filter_by"}}
+            </p>
+            <div class="flex flex-wrap gap-2" role="group" aria-label="{{call .T "library.filter_by"}}">
+                <label class="library-filter-option cursor-pointer inline-flex items-center rounded-lg
+                              px-3.5 py-2 text-sm border border-gray-700 bg-gray-800 text-gray-300
+                              transition-colors whitespace-nowrap
+                              has-[:checked]:bg-indigo-600 has-[:checked]:border-indigo-500 has-[:checked]:text-white">
+                    <input type="radio" name="platform" value="" class="sr-only library-filter-input" checked
+                           data-filter-label="{{call .T "library.all_platforms"}}"
+                           hx-get="{{$gridURL}}"
+                           hx-target="#library-section"
+                           hx-trigger="change"
+                           hx-include="[name='group_by']:checked, [name='platform']:checked">
+                    {{call .T "library.all_platforms"}}
+                </label>
+                {{range .platforms}}
+                <label class="library-filter-option cursor-pointer inline-flex items-center rounded-lg
+                              px-3.5 py-2 text-sm border border-gray-700 bg-gray-800 text-gray-300
+                              transition-colors whitespace-nowrap
+                              has-[:checked]:bg-indigo-600 has-[:checked]:border-indigo-500 has-[:checked]:text-white">
+                    <input type="radio" name="platform" value="{{.}}" class="sr-only library-filter-input"
+                           data-filter-label="{{.}}"
+                           hx-get="{{$gridURL}}"
+                           hx-target="#library-section"
+                           hx-trigger="change"
+                           hx-include="[name='group_by']:checked, [name='platform']:checked">
+                    {{.}}
+                </label>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+
+        <div>
+            <p class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2.5">
+                {{call .T "library.group_by"}}
+            </p>
+            <div class="flex flex-wrap gap-2" role="group" aria-label="{{call .T "library.group_by"}}">
+                <label class="library-filter-option cursor-pointer inline-flex items-center rounded-lg
+                              px-3.5 py-2 text-sm border border-gray-700 bg-gray-800 text-gray-300
+                              transition-colors whitespace-nowrap
+                              has-[:checked]:bg-indigo-600 has-[:checked]:border-indigo-500 has-[:checked]:text-white">
+                    <input type="radio" name="group_by" value="" class="sr-only library-filter-input" checked
+                           data-filter-label="{{call .T "library.all_games"}}"
+                           hx-get="{{$gridURL}}"
+                           hx-target="#library-section"
+                           hx-trigger="change"
+                           hx-include="[name='group_by']:checked, [name='platform']:checked">
+                    {{call .T "library.all_games"}}
+                </label>
+                <label class="library-filter-option cursor-pointer inline-flex items-center rounded-lg
+                              px-3.5 py-2 text-sm border border-gray-700 bg-gray-800 text-gray-300
+                              transition-colors whitespace-nowrap
+                              has-[:checked]:bg-indigo-600 has-[:checked]:border-indigo-500 has-[:checked]:text-white">
+                    <input type="radio" name="group_by" value="platform" class="sr-only library-filter-input"
+                           data-filter-label="{{call .T "library.group_platform"}}"
+                           hx-get="{{$gridURL}}"
+                           hx-target="#library-section"
+                           hx-trigger="change"
+                           hx-include="[name='group_by']:checked, [name='platform']:checked">
+                    {{call .T "library.group_platform"}}
+                </label>
+                <label class="library-filter-option cursor-pointer inline-flex items-center rounded-lg
+                              px-3.5 py-2 text-sm border border-gray-700 bg-gray-800 text-gray-300
+                              transition-colors whitespace-nowrap
+                              has-[:checked]:bg-indigo-600 has-[:checked]:border-indigo-500 has-[:checked]:text-white">
+                    <input type="radio" name="group_by" value="year" class="sr-only library-filter-input"
+                           data-filter-label="{{call .T "library.group_year"}}"
+                           hx-get="{{$gridURL}}"
+                           hx-target="#library-section"
+                           hx-trigger="change"
+                           hx-include="[name='group_by']:checked, [name='platform']:checked">
+                    {{call .T "library.group_year"}}
+                </label>
+            </div>
+        </div>
+
+        <div class="flex justify-end pt-4 border-t border-gray-800">
+            <button type="button"
+                    onclick="resetLibraryFilters()"
+                    class="text-sm text-gray-400 hover:text-white transition-colors">
+                {{call .T "library.clear_filters"}}
+            </button>
+        </div>
+    </div>
+</div>
+{{end}}

@@ -102,6 +102,9 @@ var enMessages = map[string]string{
 	"library.group_platform":     "Platform",
 	"library.group_year":         "Year",
 	"library.group_active":       "Active",
+	"library.group_unknown_year": "Unknown year",
+	"library.filters":            "Filters",
+	"library.clear_filters":      "Clear filters",
 	"library.no_games_found":     "No games found.",
 
 	"status.owned":     "Owned",

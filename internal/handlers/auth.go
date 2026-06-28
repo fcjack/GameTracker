@@ -210,6 +210,7 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 	year := dashboardYear(c)
 	stats := dashboardStatsMap(c.Request.Context(), h.db, userID, year)
 	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
+	platforms, _ := models.ListUserPlatforms(c.Request.Context(), h.db, userID)
 
 	c.HTML(http.StatusOK, "dashboard/index", ViewData(c, gin.H{
 		"username":       username,
@@ -219,6 +220,9 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 		"year":           year,
 		"years":          dashboardYearOptions(c.Request.Context(), h.db, userID),
 		"libraryGridURL": "/library/games?filter=active",
+		"platforms":      platforms,
+		"filterTitle":    "dashboard.my_library",
+		"filterSubtitle": "dashboard.my_library_active_hint",
 	}))
 }
 

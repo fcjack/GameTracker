@@ -13,7 +13,8 @@
 <body class="min-h-screen bg-gray-950 text-white">
     {{template "layout/app_start" .}}
 
-    <main class="max-w-5xl mx-auto px-4 py-10 w-full">
+    <main class="max-w-5xl mx-auto px-4 py-10 w-full"
+          data-page-title="{{call .T "library.title"}} — {{call .T "app.name"}}">
         <div class="mb-8 flex items-center justify-between">
             <h1 class="text-3xl font-bold">{{call .T "library.title"}}</h1>
         </div>
@@ -49,13 +50,7 @@
         </div>
 
         <div>
-            <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-                <h2 class="text-xl font-bold">{{call .T "library.my_library"}}</h2>
-                <div class="flex flex-col gap-3 sm:items-end">
-                    {{template "library/platform_filter_control" .}}
-                    {{template "library/group_by_control" .}}
-                </div>
-            </div>
+            {{template "library/library_filters" .}}
             <div id="library-section"
                  hx-get="/library/games"
                  hx-trigger="load, libraryUpdated from:body"
@@ -68,23 +63,6 @@
     </main>
 
     {{template "layout/app_end" .}}
-
-    <script>
-        function clearSearch() {
-            const searchInput = document.querySelector('input[name="q"]');
-            if (searchInput) {
-                searchInput.value = '';
-            }
-            const searchResults = document.getElementById('search-results');
-            if (searchResults) {
-                searchResults.innerHTML = '';
-            }
-        }
-
-        function refreshLibrary() {
-            htmx.trigger(document.body, 'libraryUpdated');
-        }
-    </script>
 </body>
 </html>
 {{end}}
