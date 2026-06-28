@@ -312,6 +312,12 @@ func TestStartXboxImportReturnsExistingActiveJob(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateImportJob() error = %v", err)
 	}
+	if err := models.SetImportJobTotal(ctx, db, existing.ID, 5); err != nil {
+		t.Fatalf("SetImportJobTotal() error = %v", err)
+	}
+	if err := models.UpdateImportJobProgress(ctx, db, existing.ID, 2, 1, 1); err != nil {
+		t.Fatalf("UpdateImportJobProgress() error = %v", err)
+	}
 
 	svc := NewServiceWithProviders(db, igdb.NewClient("id", "secret", "http://localhost"), nil, nil, xbox.NewClient("id", "secret"), enc)
 	job, err := svc.StartXboxImport(ctx, user.ID)
@@ -493,10 +499,10 @@ func TestStartXboxImportRecordsAPIFailure(t *testing.T) {
 }
 
 type mockXboxServers struct {
-	userURL      string
-	xstsURL      string
-	titleHubURL  string
-	httpClient   *http.Client
+	userURL     string
+	xstsURL     string
+	titleHubURL string
+	httpClient  *http.Client
 }
 
 func (m *mockXboxServers) client() *http.Client {
