@@ -99,7 +99,15 @@ XBOX_CLIENT_SECRET=
 TWITCH_CLIENT_ID=
 TWITCH_CLIENT_SECRET=
 APP_PORT=8080
+# Optional: periodically re-sync linked libraries in the background
+LIBRARY_SYNC_ENABLED=false
+LIBRARY_SYNC_INTERVAL=6h
 ```
+
+When `LIBRARY_SYNC_ENABLED=true`, a background scheduler re-imports every linked
+library on the interval set by `LIBRARY_SYNC_INTERVAL` (Go duration, default `6h`,
+minimum `15m`). It reuses the idempotent import pipeline, so it only adds newly
+acquired games and never collides with a manual import already in progress.
 
 ### Running With Docker (Recommended)
 

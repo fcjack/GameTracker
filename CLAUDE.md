@@ -75,6 +75,8 @@ Copy `.env.example` to `.env`. Required variables:
 - `STEAM_API_KEY` — Steam Web API key
 - `XBOX_CLIENT_ID` / `XBOX_CLIENT_SECRET` — Xbox Live OAuth credentials
 - `APP_PORT` — defaults to 8080
+- `LIBRARY_SYNC_ENABLED` — when `true`, runs a background scheduler that periodically re-syncs every linked library (default: `false`)
+- `LIBRARY_SYNC_INTERVAL` — Go duration controlling how often the scheduled sync runs (default: `6h`, minimum: `15m`)
 
 ## Architecture
 
@@ -82,6 +84,7 @@ Copy `.env.example` to `.env`. Required variables:
 - Loads `.env`, connects to DB via `database.Connect()`, runs migrations via `database.RunMigrations()` (migrations are automatic on every startup, no separate command)
 - Loads all `*.html` files recursively from `templates/` into a single `*template.Template`
 - Sets up cookie-based sessions (`gin-contrib/sessions`), then registers routes
+- When `LIBRARY_SYNC_ENABLED=true`, starts `importjob.Scheduler` in a goroutine to periodically re-sync linked libraries (interval from `LIBRARY_SYNC_INTERVAL`)
 
 **Routes:**
 - Public: `GET /`, `GET/POST /login`, `GET/POST /register`, `POST /logout`

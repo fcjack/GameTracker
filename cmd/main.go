@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"html/template"
 	"io/fs"
 	"log/slog"
@@ -124,6 +125,16 @@ func main() {
 		igdbBaseURL,
 	)
 	importService := importjob.NewService(db, igdbClient)
+
+	if config.LibrarySyncEnabled() {
+		interval := config.LibrarySyncInterval()
+		scheduler := importjob.NewScheduler(db, importService, interval)
+		go scheduler.Run(context.Background())
+		logger.Info("scheduled library sync enabled", "interval", interval.String())
+	} else {
+		logger.Info("scheduled library sync disabled")
+	}
+
 	steam := handlers.NewSteamHandler(db, importService)
 	importHandler := handlers.NewImportHandler(db, importService)
 	library := handlers.NewLibraryHandler(db, igdbClient)

@@ -61,6 +61,41 @@ func GetLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, provi
 	return &la, nil
 }
 
+// ListLinkedAccountsByProvider returns every linked account for a provider across
+// all users. Used by the background scheduler to drive periodic library syncs.
+func ListLinkedAccountsByProvider(ctx context.Context, db *pgxpool.Pool, provider string) ([]*LinkedAccount, error) {
+	const query = `
+		SELECT id, user_id, provider, external_id, display_name, access_token_enc, refresh_token_enc, token_expires_at, created_at, updated_at
+		FROM linked_accounts
+		WHERE provider = $1
+		ORDER BY user_id ASC
+	`
+
+	rows, err := db.Query(ctx, query, provider)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var accounts []*LinkedAccount
+	for rows.Next() {
+		var la LinkedAccount
+		err := rows.Scan(
+			&la.ID, &la.UserID, &la.Provider, &la.ExternalID, &la.DisplayName, &la.AccessTokenEnc, &la.RefreshTokenEnc, &la.TokenExpiresAt, &la.CreatedAt, &la.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		accounts = append(accounts, &la)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return accounts, nil
+}
+
 func DeleteLinkedAccount(ctx context.Context, db *pgxpool.Pool, userID int64, provider string) error {
 	const query = `DELETE FROM linked_accounts WHERE user_id = $1 AND provider = $2`
 	_, err := db.Exec(ctx, query, userID, provider)
