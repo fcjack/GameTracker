@@ -110,10 +110,8 @@ var ptBRMessages = map[string]string{
 	"game.when_finished":          "Quando você terminou %s?",
 	"game.confirm":                "Confirmar",
 	"game.cancel":                 "Cancelar",
-	"game.playtime_minutes":       "%d min",
-	"game.playtime_hours":         "%d h",
-	"game.playtime_hours_plural":  "%d h",
-	"game.playtime_hours_decimal": "%.1f h",
+	"game.playtime_hours_minute":  "%d h e %d minuto",
+	"game.playtime_hours_minutes": "%d h e %d minutos",
 
 	"search.in_library":       "Na biblioteca",
 	"search.add_to_library":   "Adicionar à biblioteca",

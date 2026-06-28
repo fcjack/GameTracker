@@ -9,12 +9,15 @@ func TestFormatPlaytime(t *testing.T) {
 		minutes int
 		want    string
 	}{
-		{LocaleEN, 45, "45 min"},
-		{LocaleEN, 60, "1 hr"},
-		{LocaleEN, 150, "2.5 hrs"},
-		{LocaleEN, 8520, "142 hrs"},
-		{LocalePTBR, 45, "45 min"},
-		{LocalePTBR, 150, "2.5 h"},
+		{LocaleEN, 0, "0 H and 0 minutes"},
+		{LocaleEN, 45, "0 H and 45 minutes"},
+		{LocaleEN, 60, "1 H and 0 minutes"},
+		{LocaleEN, 61, "1 H and 1 minute"},
+		{LocaleEN, 150, "2 H and 30 minutes"},
+		{LocaleEN, 8520, "142 H and 0 minutes"},
+		{LocalePTBR, 45, "0 h e 45 minutos"},
+		{LocalePTBR, 61, "1 h e 1 minuto"},
+		{LocalePTBR, 150, "2 h e 30 minutos"},
 	}
 	for _, tt := range tests {
 		if got := FormatPlaytime(tt.locale, tt.minutes); got != tt.want {
