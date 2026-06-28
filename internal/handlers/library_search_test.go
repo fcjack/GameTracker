@@ -53,7 +53,7 @@ func sessionCookies(t *testing.T, r *gin.Engine, userID int64, username string) 
 }
 
 func TestSearchLibraryRendersMatchingGames(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	db := testDB(t)
 	defer db.Close()
@@ -101,7 +101,7 @@ func TestSearchLibraryRendersMatchingGames(t *testing.T) {
 }
 
 func TestSearchLibraryEmptyQuery(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	db := testDB(t)
 	defer db.Close()
@@ -132,7 +132,7 @@ func TestSearchLibraryEmptyQuery(t *testing.T) {
 }
 
 func TestSearchLibraryNoResults(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	db := testDB(t)
 	defer db.Close()
@@ -163,7 +163,7 @@ func TestSearchLibraryNoResults(t *testing.T) {
 }
 
 func TestSearchIGDBRendersResults(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	const testToken = "test-access-token"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

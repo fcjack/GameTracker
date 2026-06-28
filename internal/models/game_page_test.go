@@ -32,6 +32,7 @@ func seedLibrary(t *testing.T, db *pgxpool.Pool, userID int64, igdbBase int64, n
 }
 
 func TestListUserGamesPage_paginates(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -90,6 +91,7 @@ func TestListUserGamesPage_paginates(t *testing.T) {
 }
 
 func TestListUserGamesPage_zeroLimitReturnsAll(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -111,6 +113,7 @@ func TestListUserGamesPage_zeroLimitReturnsAll(t *testing.T) {
 }
 
 func TestListUserGamesByStatusesPage_paginates(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -151,6 +154,7 @@ func TestListUserGamesByStatusesPage_paginates(t *testing.T) {
 }
 
 func TestLibraryIGDBIDs(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -195,6 +199,7 @@ func TestLibraryIGDBIDs(t *testing.T) {
 }
 
 func TestLibraryIGDBIDs_emptyInput(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

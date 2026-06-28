@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 )
 
 func TestExtractSteamID(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		claimedID string
@@ -50,6 +52,7 @@ func TestExtractSteamID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := extractSteamID(tt.claimedID); got != tt.want {
 				t.Errorf("extractSteamID() = %q, want %q", got, tt.want)
 			}
@@ -58,7 +61,7 @@ func TestExtractSteamID(t *testing.T) {
 }
 
 func TestSteamInitiate(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	openIDServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -105,7 +108,7 @@ func TestSteamInitiate(t *testing.T) {
 }
 
 func TestSteamInitiateHTTPS(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	h := &SteamHandler{}
 
@@ -128,6 +131,7 @@ func TestSteamInitiateHTTPS(t *testing.T) {
 }
 
 func TestFetchSteamPersonaName(t *testing.T) {
+	t.Parallel()
 	const steamID = "76561198012345678"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -163,6 +167,7 @@ func TestFetchSteamPersonaName(t *testing.T) {
 }
 
 func TestSteamCallbackVerificationFailure(t *testing.T) {
+	t.Parallel()
 	openIDServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("is_valid:false\n"))
 	}))
@@ -184,6 +189,7 @@ func TestSteamCallbackVerificationFailure(t *testing.T) {
 }
 
 func TestSteamCallbackInvalidClaimedID(t *testing.T) {
+	t.Parallel()
 	openIDServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("is_valid:true\n"))
 	}))
@@ -202,6 +208,7 @@ func TestSteamCallbackInvalidClaimedID(t *testing.T) {
 }
 
 func TestSteamCallbackInvalidSteamID(t *testing.T) {
+	t.Parallel()
 	openIDServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("is_valid:true\n"))
 	}))
@@ -279,7 +286,6 @@ func TestSteamCallbackSuccess(t *testing.T) {
 
 func serveSteamCallback(t *testing.T, h *SteamHandler, userID int64, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	gin.SetMode(gin.TestMode)
 
 	router := gin.New()
 	store := cookie.NewStore([]byte("test-session-secret-32-chars!!"))
@@ -317,7 +323,7 @@ func testDB(t *testing.T) *pgxpool.Pool {
 		dbURL = "postgres://gametracker:gametracker@localhost:5432/gametracker?sslmode=disable"
 	}
 
-	db, err := database.Connect(dbURL)
+	db, err := database.Connect(withBoundedPool(dbURL))
 	if err != nil {
 		t.Skipf("database not available: %v", err)
 	}
@@ -327,25 +333,52 @@ func testDB(t *testing.T) *pgxpool.Pool {
 	return db
 }
 
+// withBoundedPool caps the per-test connection pool so parallel tests do not
+// exhaust the database's connection limit. Each test only needs a couple of
+// connections, and concurrency is already bounded by -parallel.
+func withBoundedPool(dbURL string) string {
+	if strings.Contains(dbURL, "pool_max_conns") {
+		return dbURL
+	}
+	sep := "?"
+	if strings.Contains(dbURL, "?") {
+		sep = "&"
+	}
+	return dbURL + sep + "pool_max_conns=4"
+}
+
+var moduleRootOnce sync.Once
+
+// chdirToModuleRoot moves to the module root exactly once per package test
+// binary. Using sync.Once keeps it safe to call from parallel tests, since
+// os.Chdir mutates process-global state.
 func chdirToModuleRoot(t *testing.T) {
 	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			if err := os.Chdir(dir); err != nil {
-				t.Fatal(err)
+	moduleRootOnce.Do(func() {
+		dir, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		for {
+			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+				if err := os.Chdir(dir); err != nil {
+					panic(err)
+				}
+				return
 			}
-			return
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				panic("could not find module root")
+			}
+			dir = parent
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not find module root")
-		}
-		dir = parent
-	}
+	})
+}
+
+// init puts Gin into test mode once for the whole package so individual
+// (possibly parallel) tests don't race on gin.SetMode's global state.
+func init() {
+	gin.SetMode(gin.TestMode)
 }
 
 func uniqueUsername(t *testing.T) string {

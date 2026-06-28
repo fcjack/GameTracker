@@ -6,6 +6,7 @@ import (
 )
 
 func TestPlaceholder(t *testing.T) {
+	t.Parallel()
 	data := Placeholder()
 	if len(data) == 0 {
 		t.Fatal("placeholder SVG is empty")

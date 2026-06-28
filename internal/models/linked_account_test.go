@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -12,6 +14,7 @@ import (
 )
 
 func TestLinkedAccountCRUD(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -84,6 +87,7 @@ func TestLinkedAccountCRUD(t *testing.T) {
 }
 
 func TestLinkedAccountProviderConstraint(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -111,7 +115,7 @@ func testDB(t *testing.T) *pgxpool.Pool {
 		dbURL = "postgres://gametracker:gametracker@localhost:5432/gametracker?sslmode=disable"
 	}
 
-	db, err := database.Connect(dbURL)
+	db, err := database.Connect(withBoundedPool(dbURL))
 	if err != nil {
 		t.Skipf("database not available: %v", err)
 	}
@@ -121,25 +125,46 @@ func testDB(t *testing.T) *pgxpool.Pool {
 	return db
 }
 
+// withBoundedPool caps the per-test connection pool so parallel tests do not
+// exhaust the database's connection limit. Each test only needs a couple of
+// connections, and concurrency is already bounded by -parallel.
+func withBoundedPool(dbURL string) string {
+	if strings.Contains(dbURL, "pool_max_conns") {
+		return dbURL
+	}
+	sep := "?"
+	if strings.Contains(dbURL, "?") {
+		sep = "&"
+	}
+	return dbURL + sep + "pool_max_conns=4"
+}
+
+var moduleRootOnce sync.Once
+
+// chdirToModuleRoot moves to the module root exactly once per package test
+// binary. Using sync.Once keeps it safe to call from parallel tests, since
+// os.Chdir mutates process-global state.
 func chdirToModuleRoot(t *testing.T) {
 	t.Helper()
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatal(err)
-	}
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			if err := os.Chdir(dir); err != nil {
-				t.Fatal(err)
+	moduleRootOnce.Do(func() {
+		dir, err := os.Getwd()
+		if err != nil {
+			panic(err)
+		}
+		for {
+			if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+				if err := os.Chdir(dir); err != nil {
+					panic(err)
+				}
+				return
 			}
-			return
+			parent := filepath.Dir(dir)
+			if parent == dir {
+				panic("could not find module root")
+			}
+			dir = parent
 		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			t.Fatal("could not find module root")
-		}
-		dir = parent
-	}
+	})
 }
 
 func uniqueUsername(t *testing.T) string {

@@ -52,7 +52,7 @@ jobs:
           cache: true
 
       - name: Run tests
-        run: go test -race -count=1 ./...
+        run: go test -race -count=1 -p "$(nproc)" -parallel "$(nproc)" ./...
 
   docker:
     name: Docker

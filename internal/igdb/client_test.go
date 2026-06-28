@@ -11,6 +11,7 @@ import (
 )
 
 func TestReleaseYear(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name      string
 		timestamp int64
@@ -22,6 +23,7 @@ func TestReleaseYear(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := ReleaseYear(tt.timestamp); got != tt.want {
 				t.Errorf("ReleaseYear() = %d, want %d", got, tt.want)
 			}
@@ -30,6 +32,7 @@ func TestReleaseYear(t *testing.T) {
 }
 
 func TestNormalizeCoverURL(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		raw  string
@@ -43,6 +46,7 @@ func TestNormalizeCoverURL(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := normalizeCoverURL(tt.raw); got != tt.want {
 				t.Errorf("normalizeCoverURL() = %q, want %q", got, tt.want)
 			}
@@ -51,6 +55,7 @@ func TestNormalizeCoverURL(t *testing.T) {
 }
 
 func TestSearch(t *testing.T) {
+	t.Parallel()
 	const testToken = "test-access-token"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -114,6 +119,7 @@ func TestSearch(t *testing.T) {
 }
 
 func TestSearchEscapesQuotes(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
@@ -141,6 +147,7 @@ func TestSearchEscapesQuotes(t *testing.T) {
 }
 
 func TestSearchTokenCaching(t *testing.T) {
+	t.Parallel()
 	tokenRequests := 0
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -173,6 +180,7 @@ func TestSearchTokenCaching(t *testing.T) {
 }
 
 func TestSearchUnauthorizedClearsToken(t *testing.T) {
+	t.Parallel()
 	tokenRequests := 0
 	searchRequests := 0
 
@@ -214,6 +222,7 @@ func TestSearchUnauthorizedClearsToken(t *testing.T) {
 }
 
 func TestLookupIGDBIDBySteamAppID(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
@@ -246,6 +255,7 @@ func TestLookupIGDBIDBySteamAppID(t *testing.T) {
 }
 
 func TestLookupIGDBIDBySteamAppIDFallback(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
@@ -277,6 +287,7 @@ func TestLookupIGDBIDBySteamAppIDFallback(t *testing.T) {
 }
 
 func TestGetGameByID(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/token":
@@ -312,6 +323,7 @@ func TestGetGameByID(t *testing.T) {
 }
 
 func TestSearchTokenRequestFailure(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))

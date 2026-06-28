@@ -3,6 +3,7 @@ package importjob
 import "testing"
 
 func TestNamesMatch(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		steam string
 		igdb  string

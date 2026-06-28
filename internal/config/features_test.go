@@ -3,6 +3,7 @@ package config
 import "testing"
 
 func TestParseBoolEnv(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		value      string
 		defaultVal bool

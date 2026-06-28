@@ -6,6 +6,7 @@ import (
 )
 
 func TestEncryptDecrypt(t *testing.T) {
+	t.Parallel()
 	key := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		key[i] = byte(i)
@@ -34,6 +35,7 @@ func TestEncryptDecrypt(t *testing.T) {
 }
 
 func TestEncryptProducesDifferentOutput(t *testing.T) {
+	t.Parallel()
 	key := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		key[i] = byte(i)
@@ -62,6 +64,7 @@ func TestEncryptProducesDifferentOutput(t *testing.T) {
 }
 
 func TestDecryptInvalidInput(t *testing.T) {
+	t.Parallel()
 	key := make([]byte, 32)
 	for i := 0; i < 32; i++ {
 		key[i] = byte(i)
@@ -80,6 +83,7 @@ func TestDecryptInvalidInput(t *testing.T) {
 }
 
 func TestNewEncrypterInvalidKey(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name    string
 		keyHex  string
@@ -92,6 +96,7 @@ func TestNewEncrypterInvalidKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			_, err := NewEncrypter(tt.keyHex)
 			if (err == nil) != !tt.wantErr {
 				t.Errorf("NewEncrypter got error = %v, wantErr = %v", err, tt.wantErr)

@@ -29,7 +29,7 @@ func authTestRouter(h *AuthHandler) *gin.Engine {
 }
 
 func TestRegisterDisabled(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	h := &AuthHandler{registrationEnabled: false}
 	r := authTestRouter(h)
@@ -50,7 +50,7 @@ func TestRegisterDisabled(t *testing.T) {
 }
 
 func TestRegisterPageRedirectsWhenDisabled(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	h := &AuthHandler{registrationEnabled: false}
 	r := authTestRouter(h)

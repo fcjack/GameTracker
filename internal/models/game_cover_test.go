@@ -5,6 +5,7 @@ import (
 )
 
 func TestSaveAndGetGameCover(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

@@ -9,6 +9,7 @@ import (
 )
 
 func TestFindOrCreateGameBySteamAppID(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -46,6 +47,7 @@ func TestFindOrCreateGameBySteamAppID(t *testing.T) {
 }
 
 func TestLinkIGDBToSteamGame(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -85,6 +87,7 @@ func TestLinkIGDBToSteamGame(t *testing.T) {
 }
 
 func TestResolveGameForSteamImportMergesDuplicateRows(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -156,6 +159,7 @@ func TestResolveGameForSteamImportMergesDuplicateRows(t *testing.T) {
 }
 
 func TestGetGameBySteamAppIDNotFound(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

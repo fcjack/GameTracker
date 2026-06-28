@@ -7,6 +7,7 @@ import (
 )
 
 func TestTryURLsPrefersFirstAvailable(t *testing.T) {
+	t.Parallel()
 	const steamBody = "steam-cover-bytes-long-enough-for-image-detect-and-validation-check"
 	const igdbBody = "igdb-cover-bytes-long-enough-for-image-detect-and-validation-check"
 
@@ -40,6 +41,7 @@ func TestTryURLsPrefersFirstAvailable(t *testing.T) {
 }
 
 func TestTryURLsFallsBackWhenEarlierURLsMissing(t *testing.T) {
+	t.Parallel()
 	const igdbBody = "igdb-cover-bytes-long-enough-for-image-detect-and-validation-check"
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -66,6 +68,7 @@ func TestTryURLsFallsBackWhenEarlierURLsMissing(t *testing.T) {
 }
 
 func TestTryURLsRejectsNonImage(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("not an image but long enough to pass size checks easily"))

@@ -8,6 +8,7 @@ import (
 )
 
 func TestSearchUserGames_matchesByName(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -45,6 +46,7 @@ func TestSearchUserGames_matchesByName(t *testing.T) {
 }
 
 func TestSearchUserGames_matchesByPlatform(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -80,6 +82,7 @@ func TestSearchUserGames_matchesByPlatform(t *testing.T) {
 }
 
 func TestSearchUserGames_caseInsensitive(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -112,6 +115,7 @@ func TestSearchUserGames_caseInsensitive(t *testing.T) {
 }
 
 func TestSearchUserGames_excludesOtherUsers(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -148,6 +152,7 @@ func TestSearchUserGames_excludesOtherUsers(t *testing.T) {
 }
 
 func TestSearchUserGames_noMatch(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

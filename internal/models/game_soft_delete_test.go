@@ -8,6 +8,7 @@ import (
 )
 
 func TestRemoveFromLibrary_softDeletes(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -68,6 +69,7 @@ func TestRemoveFromLibrary_softDeletes(t *testing.T) {
 }
 
 func TestAddToLibrary_restoresSoftDeleted(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

@@ -23,6 +23,7 @@ func (f *fakeImporter) StartSteamImport(_ context.Context, userID int64, steamID
 }
 
 func TestSchedulerSyncSteamTriggersAllLinkedAccounts(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 

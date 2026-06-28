@@ -12,6 +12,7 @@ import (
 )
 
 func TestIsImportableAppType(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		typ  string
 		want bool
@@ -34,6 +35,7 @@ func TestIsImportableAppType(t *testing.T) {
 }
 
 func TestStoreClientGetAppType(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("appids") != "570" {
 			http.NotFound(w, r)
@@ -64,6 +66,7 @@ func TestStoreClientGetAppType(t *testing.T) {
 }
 
 func TestStoreClientGetAppTypeUsesCache(t *testing.T) {
+	t.Parallel()
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
@@ -92,6 +95,7 @@ func TestStoreClientGetAppTypeUsesCache(t *testing.T) {
 }
 
 func TestStoreClientFilterImportableGames(t *testing.T) {
+	t.Parallel()
 	types := map[int]string{
 		570:    "game",
 		401920: "dlc",
@@ -144,6 +148,7 @@ func TestStoreClientFilterImportableGames(t *testing.T) {
 }
 
 func TestStoreClientRetriesOn429(t *testing.T) {
+	t.Parallel()
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if requests.Add(1) == 1 {

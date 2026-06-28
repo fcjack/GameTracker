@@ -11,7 +11,7 @@ import (
 )
 
 func TestRequestMetricsIncrementsCounter(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 
 	r := gin.New()
 	r.Use(RequestMetrics())

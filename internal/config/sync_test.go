@@ -6,6 +6,7 @@ import (
 )
 
 func TestParseDurationEnv(t *testing.T) {
+	t.Parallel()
 	const def = 6 * time.Hour
 	const min = 15 * time.Minute
 

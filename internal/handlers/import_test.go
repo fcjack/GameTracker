@@ -17,6 +17,7 @@ import (
 )
 
 func TestStartSteamImportNotLinked(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -69,7 +70,7 @@ func TestStartSteamImportSuccess(t *testing.T) {
 }
 
 func TestSteamImportStatusNoJob(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -91,6 +92,7 @@ func TestSteamImportStatusNoJob(t *testing.T) {
 }
 
 func TestClearSteamLibrarySuccess(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -137,7 +139,7 @@ func TestClearSteamLibrarySuccess(t *testing.T) {
 }
 
 func TestSteamImportStatusWithJob(t *testing.T) {
-	gin.SetMode(gin.TestMode)
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -178,7 +180,6 @@ func serveImportRequest(t *testing.T, h *ImportHandler, userID int64, method, pa
 }
 
 func newImportTestRouter(h *ImportHandler) *gin.Engine {
-	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	store := cookie.NewStore([]byte("test-session-secret-32-chars!!"))
 	router.Use(sessions.Sessions("session", store))

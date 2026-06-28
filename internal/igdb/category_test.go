@@ -3,6 +3,7 @@ package igdb
 import "testing"
 
 func TestIsMainGame(t *testing.T) {
+	t.Parallel()
 	if !IsMainGame(0) {
 		t.Error("category 0 should be a main game")
 	}

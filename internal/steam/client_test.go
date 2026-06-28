@@ -8,6 +8,7 @@ import (
 )
 
 func TestGetOwnedGames(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/IPlayerService/GetOwnedGames/v0001/" {
 			http.NotFound(w, r)
@@ -47,6 +48,7 @@ func TestGetOwnedGames(t *testing.T) {
 }
 
 func TestCoverImageURL(t *testing.T) {
+	t.Parallel()
 	want := "https://cdn.cloudflare.steamstatic.com/steam/apps/570/library_600x900.jpg"
 
 	withIcon := CoverImageURL(570, "7d5a243f9500d2f8467312822f8af2a2928777ed")
@@ -61,6 +63,7 @@ func TestCoverImageURL(t *testing.T) {
 }
 
 func TestNewClientWithHTTP(t *testing.T) {
+	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(map[string]any{
 			"response": map[string]any{
@@ -81,6 +84,7 @@ func TestNewClientWithHTTP(t *testing.T) {
 }
 
 func TestGetOwnedGamesMissingAPIKey(t *testing.T) {
+	t.Parallel()
 	client := NewClient("")
 	_, err := client.GetOwnedGames("76561198012345678")
 	if err == nil {

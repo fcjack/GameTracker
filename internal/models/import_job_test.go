@@ -7,6 +7,7 @@ import (
 )
 
 func TestImportJobProgressPercent(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		job  ImportJob
@@ -19,6 +20,7 @@ func TestImportJobProgressPercent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := tt.job.ProgressPercent(); got != tt.want {
 				t.Errorf("ProgressPercent() = %d, want %d", got, tt.want)
 			}
@@ -27,6 +29,7 @@ func TestImportJobProgressPercent(t *testing.T) {
 }
 
 func TestImportJobIsActive(t *testing.T) {
+	t.Parallel()
 	if !(&ImportJob{Status: "pending"}).IsActive() {
 		t.Error("pending should be active")
 	}
@@ -39,6 +42,7 @@ func TestImportJobIsActive(t *testing.T) {
 }
 
 func TestImportJobNeedsRestart(t *testing.T) {
+	t.Parallel()
 	now := time.Now()
 
 	tests := []struct {
@@ -70,6 +74,7 @@ func TestImportJobNeedsRestart(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := tt.job.NeedsRestart(); got != tt.want {
 				t.Errorf("NeedsRestart() = %v, want %v", got, tt.want)
 			}
@@ -78,6 +83,7 @@ func TestImportJobNeedsRestart(t *testing.T) {
 }
 
 func TestImportJobSummary(t *testing.T) {
+	t.Parallel()
 	tests := []struct {
 		name string
 		job  ImportJob
@@ -112,6 +118,7 @@ func TestImportJobSummary(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			if got := tt.job.Summary(); got != tt.want {
 				t.Errorf("Summary() = %q, want %q", got, tt.want)
 			}
@@ -120,6 +127,7 @@ func TestImportJobSummary(t *testing.T) {
 }
 
 func TestImportJobLifecycle(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
@@ -167,6 +175,7 @@ func TestImportJobLifecycle(t *testing.T) {
 }
 
 func TestHasActiveImportJob(t *testing.T) {
+	t.Parallel()
 	db := testDB(t)
 	defer db.Close()
 
