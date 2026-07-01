@@ -26,5 +26,23 @@ func normalize(name string) string {
 			b.WriteRune(r)
 		}
 	}
-	return strings.Join(strings.Fields(b.String()), " ")
+	return canonicalizeNumerals(strings.Join(strings.Fields(b.String()), " "))
+}
+
+var romanToArabic = map[string]string{
+	"i": "1", "ii": "2", "iii": "3", "iv": "4", "v": "5",
+	"vi": "6", "vii": "7", "viii": "8", "ix": "9",
+}
+
+func canonicalizeNumerals(s string) string {
+	words := strings.Fields(s)
+	if len(words) == 0 {
+		return s
+	}
+	last := words[len(words)-1]
+	if arabic, ok := romanToArabic[last]; ok {
+		words[len(words)-1] = arabic
+		return strings.Join(words, " ")
+	}
+	return s
 }

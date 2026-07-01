@@ -20,6 +20,10 @@ import (
 const steamPlatform = "Steam"
 const xboxPlatform = "Xbox"
 
+func igdbConfigured() bool {
+	return os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
+}
+
 type Service struct {
 	db        *pgxpool.Pool
 	igdb      *igdb.Client
@@ -142,7 +146,7 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 		return
 	}
 
-	hasIGDB := os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
+	hasIGDB := igdbConfigured()
 
 	alreadyImported, err := models.ListImportedSteamAppIDs(ctx, s.db, userID, steamPlatform)
 	if err != nil {

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -129,7 +130,93 @@ func TestStartXboxImportImportsGames(t *testing.T) {
 	}
 }
 
-func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
+func TestStartXboxImportEnrichesViaIGDBNameSearch(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const (
+		accessToken = "microsoft-access-token"
+		xuid        = "2535465432123456"
+	)
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      "888777666",
+			"name":         "Ori and the Will of the Wisps",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=ori.jpg",
+		},
+	})
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			text := string(body)
+			switch {
+			case strings.Contains(text, `external_games.uid = "888777666"`):
+				json.NewEncoder(w).Encode([]any{})
+			case strings.Contains(text, `search "Ori and the Will of the Wisps"`):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":                 111333,
+						"name":               "Ori and the Will of the Wisps",
+						"category":           0,
+						"first_release_date": time.Date(2020, 3, 11, 0, 0, 0, 0, time.UTC).Unix(),
+						"platforms":          []map[string]any{{"name": "Xbox One"}},
+					},
+				})
+			default:
+				json.NewEncoder(w).Encode([]any{})
+			}
+		case "/external_games":
+			json.NewEncoder(w).Encode([]any{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, accessToken)
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+
+	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	got := games[0]
+	if got.IGDBId == nil || *got.IGDBId != 111333 {
+		t.Errorf("igdb_id = %v, want 111333", got.IGDBId)
+	}
+	if got.ReleaseYear != 2020 {
+		t.Errorf("release_year = %d, want 2020", got.ReleaseYear)
+	}
+}
+
+func TestStartXboxImportEnrichesReleaseYearViaNameSearch(t *testing.T) {
 	t.Setenv("TWITCH_CLIENT_ID", "test-client")
 	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
 
@@ -146,16 +233,123 @@ func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
 		},
 	})
 
-	igdbCalls := 0
 	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/games" || r.URL.Path == "/external_games" {
-			igdbCalls++
-		}
 		switch r.URL.Path {
 		case "/token":
 			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			text := string(body)
+			switch {
+			case strings.Contains(text, `external_games.uid = "1144039928"`):
+				json.NewEncoder(w).Encode([]map[string]any{{"id": 135590, "name": "Halo Infinite"}})
+			case strings.Contains(text, "where id = 135590"):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":        135590,
+						"name":      "Halo Infinite",
+						"category":  0,
+						"platforms": []map[string]any{{"name": "Xbox Series X|S"}},
+					},
+				})
+			case strings.Contains(text, `search "Halo Infinite"`):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":                 135590,
+						"name":               "Halo Infinite",
+						"category":           0,
+						"first_release_date": time.Date(2021, 12, 8, 0, 0, 0, 0, time.UTC).Unix(),
+						"platforms":          []map[string]any{{"name": "Xbox Series X|S"}},
+					},
+				})
+			default:
+				json.NewEncoder(w).Encode([]any{})
+			}
+		case "/external_games":
+			json.NewEncoder(w).Encode([]any{})
 		default:
-			w.Write([]byte("[]"))
+			http.NotFound(w, r)
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, accessToken)
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+
+	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].ReleaseYear != 2021 {
+		t.Errorf("release_year = %d, want 2021", games[0].ReleaseYear)
+	}
+}
+
+func TestStartXboxImportBackfillsAlreadyImportedYear(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const (
+		accessToken = "microsoft-access-token"
+		xuid        = "2535465432123456"
+	)
+	titleID := int(880000000 + time.Now().UnixNano()%1000000)
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      strconv.Itoa(titleID),
+			"name":         "Backfill Test Game",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=backfill.jpg",
+		},
+	})
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			text := string(body)
+			switch {
+			case strings.Contains(text, `search "Backfill Test Game"`):
+				json.NewEncoder(w).Encode([]map[string]any{
+					{
+						"id":                 135591,
+						"name":               "Backfill Test Game",
+						"category":           0,
+						"first_release_date": time.Date(2021, 12, 8, 0, 0, 0, 0, time.UTC).Unix(),
+						"platforms":          []map[string]any{{"name": "Xbox Series X|S"}},
+					},
+				})
+			default:
+				json.NewEncoder(w).Encode([]any{})
+			}
+		case "/external_games":
+			json.NewEncoder(w).Encode([]any{})
+		default:
+			http.NotFound(w, r)
 		}
 	}))
 	defer igdbServer.Close()
@@ -170,9 +364,12 @@ func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
 	}
-	existing, err := models.FindOrCreateGameByXboxTitleID(ctx, db, 1144039928, "Halo Infinite", "https://cdn.example.com/halo.jpg", cat.ID)
+	existing, err := models.FindOrCreateGameByXboxTitleID(ctx, db, titleID, "Backfill Test Game", "https://cdn.example.com/backfill.jpg", cat.ID)
 	if err != nil {
 		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	if existing.ReleaseYear != 0 {
+		t.Fatalf("release_year = %d, want 0 before backfill", existing.ReleaseYear)
 	}
 	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Xbox", nil); err != nil {
 		t.Fatalf("AddToLibrary() error = %v", err)
@@ -204,8 +401,167 @@ func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
 	if got.SkippedCount != 1 {
 		t.Errorf("skipped_count = %d, want 1", got.SkippedCount)
 	}
-	if igdbCalls != 0 {
-		t.Errorf("igdb API calls = %d, want 0 for already-imported game", igdbCalls)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].ReleaseYear != 2021 {
+		t.Errorf("release_year = %d, want 2021 after backfill", games[0].ReleaseYear)
+	}
+}
+
+func TestStartXboxImportSkipsDemoTitles(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "")
+	t.Setenv("TWITCH_CLIENT_SECRET", "")
+
+	const xuid = "2535465432123456"
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      "1144039928",
+			"name":         "Halo Infinite",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=halo.jpg",
+		},
+		{
+			"titleId":      "777888999",
+			"name":         "Halo Infinite Demo",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=halo-demo.jpg",
+		},
+	})
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, "access-token")
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+
+	svc := NewServiceWithProviders(
+		db,
+		igdb.NewClient("", "", "http://localhost"),
+		nil,
+		nil,
+		xboxClient,
+		enc,
+	)
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.TotalCount != 1 {
+		t.Errorf("total_count = %d, want 1 (demo excluded)", got.TotalCount)
+	}
+	if got.ImportedCount != 1 {
+		t.Errorf("imported_count = %d, want 1", got.ImportedCount)
+	}
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].Name != "Halo Infinite" {
+		t.Errorf("imported game = %q, want Halo Infinite", games[0].Name)
+	}
+}
+
+func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const (
+		accessToken = "microsoft-access-token"
+		xuid        = "2535465432123456"
+	)
+	titleID := int(770000000 + time.Now().UnixNano()%1000000)
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      strconv.Itoa(titleID),
+			"name":         "Already Imported Game",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=existing.jpg",
+		},
+	})
+
+	igdbCalls := 0
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/games" || r.URL.Path == "/external_games" {
+			igdbCalls++
+		}
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		default:
+			w.Write([]byte("[]"))
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, accessToken)
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	existing, err := models.FindOrCreateGameByXboxTitleID(ctx, db, titleID, "Already Imported Game", "https://cdn.example.com/existing.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	if existing.ReleaseYear != 0 {
+		t.Fatalf("release_year = %d, want 0 before sync", existing.ReleaseYear)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Xbox", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+
+	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.ImportedCount != 0 {
+		t.Errorf("imported_count = %d, want 0", got.ImportedCount)
+	}
+	if got.SkippedCount != 1 {
+		t.Errorf("skipped_count = %d, want 1", got.SkippedCount)
+	}
+	if igdbCalls == 0 {
+		t.Error("igdb API calls = 0, want metadata backfill for yearless game")
 	}
 }
 

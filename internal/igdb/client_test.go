@@ -31,6 +31,26 @@ func TestReleaseYear(t *testing.T) {
 	}
 }
 
+func TestReleaseYearFromResult(t *testing.T) {
+	t.Parallel()
+
+	year := ReleaseYearFromResult(&SearchResult{
+		ReleaseDates: []ReleaseDate{
+			{Date: time.Date(2021, 3, 1, 0, 0, 0, 0, time.UTC).Unix()},
+			{Date: time.Date(2020, 12, 8, 0, 0, 0, 0, time.UTC).Unix()},
+		},
+	})
+	if year != 2020 {
+		t.Errorf("ReleaseYearFromResult() = %d, want 2020", year)
+	}
+
+	if got := ReleaseYearFromResult(&SearchResult{
+		FirstReleaseDate: time.Date(2019, 5, 1, 0, 0, 0, 0, time.UTC).Unix(),
+	}); got != 2019 {
+		t.Errorf("ReleaseYearFromResult(first_release_date) = %d, want 2019", got)
+	}
+}
+
 func TestNormalizeCoverURL(t *testing.T) {
 	t.Parallel()
 	tests := []struct {

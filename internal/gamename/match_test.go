@@ -13,6 +13,7 @@ func TestMatch(t *testing.T) {
 		{"Counter-Strike 2", "Counter-Strike 2", true},
 		{"Grand Theft Auto V", "Grand Theft Auto V", true},
 		{"Hollow Knight", "Hollow Knight: Silksong", true},
+		{"Warhammer 40,000: Space Marine 2", "Warhammer 40,000: Space Marine II", true},
 		{"Totally Different Game", "Another Title", false},
 		{"", "Dota 2", false},
 	}

@@ -3,10 +3,10 @@ package importjob
 import (
 	"context"
 	"log/slog"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/jacksoncoelho/game-tracker/internal/gamename"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
@@ -93,7 +93,7 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 		return
 	}
 
-	hasIGDB := os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
+	hasIGDB := igdbConfigured()
 
 	alreadyImported, err := models.ListImportedXboxTitleIDs(ctx, s.db, userID, xboxPlatform)
 	if err != nil {
@@ -109,6 +109,9 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 		processed++
 
 		if _, exists := alreadyImported[g.TitleID]; exists {
+			if hasIGDB {
+				s.syncXboxGameFromIGDB(ctx, g)
+			}
 			skipped++
 			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
 				slog.Warn("import job progress update failed",
@@ -198,6 +201,108 @@ func (s *Service) lookupXboxWithRetry(titleID int, xboxName string) (int64, erro
 	return 0, lastErr
 }
 
+// lookupIGDBByNameWithRetry finds a main IGDB game whose name matches the Xbox title.
+func (s *Service) lookupIGDBByNameWithRetry(xboxName string) (*igdb.SearchResult, error) {
+	if s.igdb == nil || xboxName == "" || !igdbConfigured() {
+		return nil, nil
+	}
+
+	for _, query := range igdbSearchQueries(xboxName) {
+		result, err := s.searchIGDBForXboxTitleWithRetry(query, xboxName)
+		if err != nil || result != nil {
+			return result, err
+		}
+	}
+	return nil, nil
+}
+
+func igdbSearchQueries(xboxName string) []string {
+	seen := make(map[string]struct{})
+	queries := make([]string, 0, 4)
+	add := func(name string) {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			return
+		}
+		if _, ok := seen[name]; ok {
+			return
+		}
+		seen[name] = struct{}{}
+		queries = append(queries, name)
+	}
+
+	add(xboxName)
+	edition := gamename.StripEditionQualifier(xboxName)
+	add(edition)
+	storefront := gamename.StripStorefrontSuffix(xboxName)
+	add(storefront)
+	add(gamename.StripStorefrontSuffix(edition))
+
+	return queries
+}
+
+func (s *Service) searchIGDBForXboxTitleWithRetry(query, xboxName string) (*igdb.SearchResult, error) {
+	const maxAttempts = 3
+	var lastErr error
+
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		result, err := s.searchIGDBForXboxTitle(query, xboxName)
+		if err == nil {
+			return result, nil
+		}
+		lastErr = err
+		if !strings.Contains(err.Error(), "rate limited") {
+			return nil, err
+		}
+	}
+
+	return nil, lastErr
+}
+
+func (s *Service) searchIGDBForXboxTitle(query, xboxName string) (*igdb.SearchResult, error) {
+	results, err := s.igdb.Search(query, 10)
+	if err != nil {
+		return nil, err
+	}
+
+	var mainGame *igdb.SearchResult
+	for _, r := range results {
+		if !xboxNamesMatch(xboxName, r.Name) {
+			continue
+		}
+		if igdb.IsMainGame(r.Category) && igdb.ReleaseYearFromResult(&r) > 0 {
+			match := r
+			return &match, nil
+		}
+		if igdb.IsMainGame(r.Category) && mainGame == nil {
+			copy := r
+			mainGame = &copy
+		}
+	}
+	if mainGame != nil {
+		return mainGame, nil
+	}
+
+	for _, r := range results {
+		if !xboxNamesMatch(xboxName, r.Name) {
+			continue
+		}
+		if igdb.ReleaseYearFromResult(&r) > 0 {
+			match := r
+			return &match, nil
+		}
+	}
+	return nil, nil
+}
+
+func (s *Service) lookupIGDBYearByNameWithRetry(xboxName string) (int, error) {
+	gameData, err := s.lookupIGDBByNameWithRetry(xboxName)
+	if err != nil || gameData == nil {
+		return 0, err
+	}
+	return igdb.ReleaseYearFromResult(gameData), nil
+}
+
 func (s *Service) importXboxGame(ctx context.Context, userID int64, g xbox.OwnedGame, igdbID int64) (bool, error) {
 	if igdbID != 0 {
 		added, handled, err := s.importXboxIGDBGameWithRetry(ctx, userID, g, igdbID)
@@ -237,7 +342,7 @@ func (s *Service) importXboxIGDBGame(ctx context.Context, userID int64, g xbox.O
 	if gameData == nil {
 		return false, false, nil
 	}
-	if !namesMatch(g.Name, gameData.Name) {
+	if !xboxNamesMatch(g.Name, gameData.Name) {
 		return false, false, nil
 	}
 	if !igdb.IsMainGame(gameData.Category) {
@@ -248,12 +353,32 @@ func (s *Service) importXboxIGDBGame(ctx context.Context, userID int64, g xbox.O
 	return added, true, err
 }
 
-func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.OwnedGame, igdbID int64, gameData *igdb.SearchResult) (bool, error) {
+func xboxNamesMatch(xboxName, igdbName string) bool {
+	if namesMatch(xboxName, igdbName) {
+		return true
+	}
+	return namesMatch(gamename.StripStorefrontSuffix(xboxName), igdbName)
+}
+
+func (s *Service) resolveXboxReleaseYear(g xbox.OwnedGame, gameData *igdb.SearchResult) (int, error) {
+	year := igdb.ReleaseYearFromResult(gameData)
+	if year > 0 {
+		return year, nil
+	}
+	return s.lookupIGDBYearByNameWithRetry(g.Name)
+}
+
+func (s *Service) upsertXboxGameFromIGDB(
+	ctx context.Context,
+	g xbox.OwnedGame,
+	igdbID int64,
+	gameData *igdb.SearchResult,
+) (*models.Game, error) {
 	cat, err := models.GetCategoryByIGDBValue(ctx, s.db, gameData.Category)
 	if err != nil {
 		cat, err = models.GetCategoryByIGDBValue(ctx, s.db, 0)
 		if err != nil {
-			return false, err
+			return nil, err
 		}
 	}
 
@@ -262,14 +387,19 @@ func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.
 		platforms[i] = p.Name
 	}
 
+	releaseYear, err := s.resolveXboxReleaseYear(g, gameData)
+	if err != nil {
+		return nil, err
+	}
+
 	game, err := models.ResolveGameForXboxImport(
 		ctx, s.db, g.TitleID, igdbID,
 		g.Name, g.ImageURL,
-		igdb.ReleaseYear(gameData.FirstReleaseDate),
+		releaseYear,
 		platforms, cat.ID,
 	)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	igdbCover := ""
@@ -277,6 +407,107 @@ func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.
 		igdbCover = gameData.Cover.URL
 	}
 	if err := models.ApplyXboxImportMetadata(ctx, s.db, game.ID, g.Name, g.ImageURL, igdbCover); err != nil {
+		return nil, err
+	}
+
+	return game, nil
+}
+
+func (s *Service) tryUpsertXboxFromIGDBID(ctx context.Context, g xbox.OwnedGame, igdbID int64) error {
+	gameData, err := s.igdb.GetGameByID(igdbID)
+	if err != nil {
+		return err
+	}
+	if gameData == nil {
+		return nil
+	}
+	if !xboxNamesMatch(g.Name, gameData.Name) {
+		return nil
+	}
+	if !igdb.IsMainGame(gameData.Category) {
+		return nil
+	}
+	_, err = s.upsertXboxGameFromIGDB(ctx, g, igdbID, gameData)
+	return err
+}
+
+func (s *Service) syncXboxGameFromIGDB(ctx context.Context, g xbox.OwnedGame) {
+	existing, err := models.GetGameByXboxTitleID(ctx, s.db, g.TitleID)
+	if err != nil || existing.ReleaseYear > 0 {
+		return
+	}
+
+	igdbID, err := s.lookupXboxWithRetry(g.TitleID, g.Name)
+	if err != nil {
+		slog.Warn("xbox metadata enrich failed",
+			"title_id", g.TitleID,
+			"name", g.Name,
+			"error", err,
+		)
+		return
+	}
+	if igdbID != 0 {
+		if err := s.tryUpsertXboxFromIGDBID(ctx, g, igdbID); err != nil {
+			slog.Warn("xbox metadata enrich failed",
+				"title_id", g.TitleID,
+				"name", g.Name,
+				"error", err,
+			)
+			return
+		}
+		existing, err = models.GetGameByXboxTitleID(ctx, s.db, g.TitleID)
+		if err == nil && existing.ReleaseYear > 0 {
+			s.fetchCover(ctx, existing.ID)
+			return
+		}
+	}
+
+	gameData, err := s.lookupIGDBByNameWithRetry(g.Name)
+	if err != nil {
+		slog.Warn("xbox metadata enrich failed",
+			"title_id", g.TitleID,
+			"name", g.Name,
+			"error", err,
+		)
+		return
+	}
+	if gameData != nil {
+		game, err := s.upsertXboxGameFromIGDB(ctx, g, gameData.ID, gameData)
+		if err != nil {
+			slog.Warn("xbox metadata enrich failed",
+				"title_id", g.TitleID,
+				"name", g.Name,
+				"error", err,
+			)
+			return
+		}
+		s.fetchCover(ctx, game.ID)
+		return
+	}
+
+	year, err := s.lookupIGDBYearByNameWithRetry(g.Name)
+	if err != nil {
+		slog.Warn("xbox metadata enrich failed",
+			"title_id", g.TitleID,
+			"name", g.Name,
+			"error", err,
+		)
+		return
+	}
+	if year > 0 {
+		if err := models.UpdateGameReleaseYearIfEmpty(ctx, s.db, existing.ID, year); err != nil {
+			slog.Warn("xbox metadata enrich failed",
+				"title_id", g.TitleID,
+				"name", g.Name,
+				"error", err,
+			)
+		}
+	}
+}
+
+func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.OwnedGame, igdbID int64, gameData *igdb.SearchResult) (bool, error) {
+	game, err := s.upsertXboxGameFromIGDB(ctx, g, igdbID, gameData)
+	if err != nil {
 		return false, err
 	}
 
@@ -286,6 +517,14 @@ func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.
 }
 
 func (s *Service) importXboxOnlyGame(ctx context.Context, userID int64, g xbox.OwnedGame) (bool, error) {
+	gameData, err := s.lookupIGDBByNameWithRetry(g.Name)
+	if err != nil {
+		return false, err
+	}
+	if gameData != nil {
+		return s.persistXboxIGDBGame(ctx, userID, g, gameData.ID, gameData)
+	}
+
 	cat, err := models.GetCategoryByIGDBValue(ctx, s.db, 0)
 	if err != nil {
 		return false, err
@@ -298,6 +537,14 @@ func (s *Service) importXboxOnlyGame(ctx context.Context, userID int64, g xbox.O
 
 	if err := models.ApplyXboxImportMetadata(ctx, s.db, game.ID, g.Name, g.ImageURL, ""); err != nil {
 		return false, err
+	}
+
+	if year, err := s.lookupIGDBYearByNameWithRetry(g.Name); err != nil {
+		return false, err
+	} else if year > 0 {
+		if err := models.UpdateGameReleaseYearIfEmpty(ctx, s.db, game.ID, year); err != nil {
+			return false, err
+		}
 	}
 
 	s.fetchCover(ctx, game.ID)

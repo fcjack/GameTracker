@@ -55,13 +55,18 @@ type Cover struct {
 	URL string `json:"url"`
 }
 
+type ReleaseDate struct {
+	Date int64 `json:"date"`
+}
+
 type SearchResult struct {
-	ID               int64      `json:"id"`
-	Name             string     `json:"name"`
-	Category         int        `json:"category"`
-	Cover            *Cover     `json:"cover"`
-	FirstReleaseDate int64      `json:"first_release_date"`
-	Platforms        []Platform `json:"platforms"`
+	ID               int64         `json:"id"`
+	Name             string        `json:"name"`
+	Category         int           `json:"category"`
+	Cover            *Cover        `json:"cover"`
+	FirstReleaseDate int64         `json:"first_release_date"`
+	ReleaseDates     []ReleaseDate `json:"release_dates"`
+	Platforms        []Platform    `json:"platforms"`
 }
 
 func NewClient(clientID, clientSecret, baseURL string) *Client {
@@ -182,7 +187,7 @@ func (c *Client) post(endpoint, body string, dest any) error {
 
 func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 	body := fmt.Sprintf(
-		`fields name,cover.url,first_release_date,platforms.name,category; search "%s"; limit %d;`,
+		`fields name,cover.url,first_release_date,release_dates.date,platforms.name,category; search "%s"; limit %d;`,
 		strings.ReplaceAll(query, `"`, `\"`),
 		limit,
 	)
@@ -316,7 +321,7 @@ func (c *Client) LookupIGDBIDByXboxTitleID(titleID int, xboxName string) (int64,
 
 func (c *Client) GetGameByID(id int64) (*SearchResult, error) {
 	body := fmt.Sprintf(
-		`fields name,cover.url,first_release_date,platforms.name,category; where id = %d; limit 1;`,
+		`fields name,cover.url,first_release_date,release_dates.date,platforms.name,category; where id = %d; limit 1;`,
 		id,
 	)
 
@@ -350,4 +355,24 @@ func ReleaseYear(unixTimestamp int64) int {
 		return 0
 	}
 	return time.Unix(unixTimestamp, 0).Year()
+}
+
+// ReleaseYearFromResult returns the earliest known release year for an IGDB game.
+func ReleaseYearFromResult(result *SearchResult) int {
+	if result == nil {
+		return 0
+	}
+	if year := ReleaseYear(result.FirstReleaseDate); year > 0 {
+		return year
+	}
+	var earliest int64
+	for _, rd := range result.ReleaseDates {
+		if rd.Date <= 0 {
+			continue
+		}
+		if earliest == 0 || rd.Date < earliest {
+			earliest = rd.Date
+		}
+	}
+	return ReleaseYear(earliest)
 }
