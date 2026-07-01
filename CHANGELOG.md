@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.7.0](https://github.com/fcjack/GameTracker/compare/v0.6.0...v0.7.0) (2026-07-01)
+
+
+### Features
+
+* **dashboard:** add per-platform playtime counters with d/h/m format ([6329b06](https://github.com/fcjack/GameTracker/commit/6329b067557371be449001551f1f739e3e848d3b))
+* **library:** add game detail page and manual IGDB linking ([8833ce2](https://github.com/fcjack/GameTracker/commit/8833ce2705b1d87558924dd9f0226001377a157c))
+* **playtime:** add Xbox playtime import with async workers and resync refresh ([e0979e9](https://github.com/fcjack/GameTracker/commit/e0979e9559324f736fe288e7481b482174c8b2a6))
+* **xbox:** enrich IGDB metadata on import and skip demos ([3b324aa](https://github.com/fcjack/GameTracker/commit/3b324aa9e96f6cf20416f8154e139dabfc89cb55))
+
 ## [0.6.0](https://github.com/fcjack/GameTracker/compare/v0.5.0...v0.6.0) (2026-06-28)
 
 
