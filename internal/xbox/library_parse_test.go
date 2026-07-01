@@ -78,3 +78,36 @@ func TestParseOwnedGamesIncludesGamePassTitleWithAchievements(t *testing.T) {
 		t.Fatalf("parseOwnedGames() returned %d games, want 1", len(games))
 	}
 }
+
+func TestParseOwnedGamesSkipsDemoTitle(t *testing.T) {
+	t.Parallel()
+
+	games, err := parseOwnedGames([]titleHistoryEntry{{
+		TitleID: json.Number("111222333"),
+		Name:    "Forza Horizon 5 Demo",
+	}})
+	if err != nil {
+		t.Fatalf("parseOwnedGames() error = %v", err)
+	}
+	if len(games) != 0 {
+		t.Fatalf("parseOwnedGames() returned %d games, want 0", len(games))
+	}
+}
+
+func TestParseOwnedGamesSkipsDemoProgram(t *testing.T) {
+	t.Parallel()
+
+	entry := titleHistoryEntry{
+		TitleID: json.Number("444555666"),
+		Name:    "Sample Game",
+	}
+	entry.Detail.Programs = []string{"DEMO"}
+
+	games, err := parseOwnedGames([]titleHistoryEntry{entry})
+	if err != nil {
+		t.Fatalf("parseOwnedGames() error = %v", err)
+	}
+	if len(games) != 0 {
+		t.Fatalf("parseOwnedGames() returned %d games, want 0", len(games))
+	}
+}

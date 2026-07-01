@@ -65,6 +65,12 @@ func ResolveGameForXboxImport(
 
 	if xboxGame != nil {
 		if xboxGame.IGDBId != nil {
+			if releaseYear > 0 && xboxGame.ReleaseYear <= 0 {
+				return LinkIGDBToXboxGame(
+					ctx, db, xboxTitleID, *xboxGame.IGDBId,
+					name, coverURL, releaseYear, platforms, categoryID,
+				)
+			}
 			return xboxGame, nil
 		}
 		return LinkIGDBToXboxGame(
@@ -94,6 +100,20 @@ func ApplyXboxImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64
 		WHERE id = $1
 	`
 	_, err := db.Exec(ctx, query, gameID, name, xboxCover, fallbackCover)
+	return err
+}
+
+// UpdateGameReleaseYearIfEmpty sets release_year when it is currently unknown.
+func UpdateGameReleaseYearIfEmpty(ctx context.Context, db *pgxpool.Pool, gameID int64, releaseYear int) error {
+	if releaseYear <= 0 {
+		return nil
+	}
+	const query = `
+		UPDATE games
+		SET release_year = $2, updated_at = NOW()
+		WHERE id = $1 AND release_year <= 0
+	`
+	_, err := db.Exec(ctx, query, gameID, releaseYear)
 	return err
 }
 
@@ -139,7 +159,7 @@ func FindOrCreateGameWithXboxTitleID(
 			name         = EXCLUDED.name,
 			cover_url    = EXCLUDED.cover_url,
 			platforms    = EXCLUDED.platforms,
-			release_year = EXCLUDED.release_year,
+			release_year = CASE WHEN EXCLUDED.release_year > 0 THEN EXCLUDED.release_year ELSE games.release_year END,
 			updated_at   = NOW()
 		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`

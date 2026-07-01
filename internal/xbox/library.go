@@ -98,6 +98,9 @@ func parseOwnedGames(entries []titleHistoryEntry) ([]OwnedGame, error) {
 // shouldImportTitle keeps purchased titles and subscription titles only when the
 // user has play activity (last played time or earned achievements).
 func shouldImportTitle(entry titleHistoryEntry) bool {
+	if entry.isDemo() {
+		return false
+	}
 	if !entry.isSubscriptionTitle() {
 		return true
 	}

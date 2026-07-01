@@ -159,6 +159,52 @@ func TestResolveGameForXboxImportMergesDuplicateRows(t *testing.T) {
 	}
 }
 
+func TestResolveGameForXboxImportBackfillsReleaseYear(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	cat, err := GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+
+	const xboxTitleID = 556677889
+	igdbID := int64(556677880)
+
+	xboxOnly, err := FindOrCreateGameByXboxTitleID(ctx, db, xboxTitleID, "Yearless Xbox Game", "https://cdn.example.com/xbox.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	linked, err := LinkIGDBToXboxGame(
+		ctx, db, xboxTitleID, igdbID,
+		"Yearless Xbox Game", "https://cdn.example.com/xbox.jpg",
+		0, []string{"Xbox"}, cat.ID,
+	)
+	if err != nil {
+		t.Fatalf("LinkIGDBToXboxGame() error = %v", err)
+	}
+	if linked.ReleaseYear != 0 {
+		t.Fatalf("release_year = %d, want 0 before backfill", linked.ReleaseYear)
+	}
+
+	resolved, err := ResolveGameForXboxImport(
+		ctx, db, xboxTitleID, igdbID,
+		"Yearless Xbox Game", "https://cdn.example.com/xbox.jpg",
+		2018, []string{"Xbox One"}, cat.ID,
+	)
+	if err != nil {
+		t.Fatalf("ResolveGameForXboxImport() error = %v", err)
+	}
+	if resolved.ID != xboxOnly.ID {
+		t.Errorf("resolved id = %d, want %d", resolved.ID, xboxOnly.ID)
+	}
+	if resolved.ReleaseYear != 2018 {
+		t.Errorf("release_year = %d, want 2018", resolved.ReleaseYear)
+	}
+}
+
 func TestGetGameByXboxTitleIDNotFound(t *testing.T) {
 	t.Parallel()
 	db := testDB(t)
