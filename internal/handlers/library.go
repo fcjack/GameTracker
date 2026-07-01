@@ -34,6 +34,7 @@ type libraryGameCard struct {
 	SearchQuery         string
 	Lang                string
 	T                   func(string, ...any) string
+	Meta                *gameDetailMeta
 }
 
 type libraryGameGroup struct {
@@ -145,6 +146,7 @@ func (h *LibraryHandler) GameDetail(c *gin.Context) {
 
 	card := toLibraryCard(c, game, true)
 	card.DetailView = true
+	card = h.enrichDetailCard(c, card)
 
 	c.HTML(http.StatusOK, "library/game_detail", ViewData(c, gin.H{
 		"username":  username,
@@ -468,6 +470,7 @@ func (h *LibraryHandler) LinkGameToIGDB(c *gin.Context) {
 	}
 
 	_ = h.covers.FetchAndStore(c.Request.Context(), linked.ID)
+	h.storeIGDBMetadata(c.Request.Context(), linked.ID, igdbID)
 
 	updated, err := models.GetUserGame(c.Request.Context(), h.db, userID, linked.ID)
 	if err != nil {
@@ -740,6 +743,7 @@ func (h *LibraryHandler) renderGameUpdate(c *gin.Context, game *models.UserGameW
 	if detailViewFromQuery(c) {
 		card := toLibraryCard(c, game, true)
 		card.DetailView = true
+		card = h.enrichDetailCard(c, card)
 		c.HTML(http.StatusOK, "library/game_detail_content", card)
 		return
 	}

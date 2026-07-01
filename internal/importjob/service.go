@@ -13,6 +13,7 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
+	"github.com/jacksoncoelho/game-tracker/internal/playtime"
 	"github.com/jacksoncoelho/game-tracker/internal/steam"
 	"github.com/jacksoncoelho/game-tracker/internal/xbox"
 )
@@ -32,6 +33,7 @@ type Service struct {
 	xbox      *xbox.Client
 	encrypter *crypto.Encrypter
 	covers    *cover.Resolver
+	playtime  playtime.Publisher
 }
 
 func NewService(db *pgxpool.Pool, igdbClient *igdb.Client, encrypter *crypto.Encrypter) *Service {
@@ -69,6 +71,36 @@ func NewServiceWithProviders(
 		encrypter: encrypter,
 		covers:    cover.NewResolver(db, igdbClient),
 	}
+}
+
+// SetPlaytimePublisher wires the background playtime worker pool.
+func (s *Service) SetPlaytimePublisher(publisher playtime.Publisher) {
+	s.playtime = publisher
+}
+
+func (s *Service) publishSteamPlaytime(userID int64, appID, minutes int) {
+	if s.playtime == nil || appID <= 0 || minutes < 0 {
+		return
+	}
+	s.playtime.Publish(playtime.Event{
+		Kind:    playtime.KindSteam,
+		UserID:  userID,
+		AppID:   appID,
+		Minutes: minutes,
+	})
+}
+
+func (s *Service) publishXboxPlaytime(userID int64, game xbox.OwnedGame) {
+	if s.playtime == nil || game.TitleID <= 0 {
+		return
+	}
+	s.playtime.Publish(playtime.Event{
+		Kind:    playtime.KindXbox,
+		UserID:  userID,
+		TitleID: game.TitleID,
+		SCID:    game.SCID,
+		Name:    game.Name,
+	})
 }
 
 func (s *Service) StartSteamImport(_ context.Context, userID int64, steamID string) (*models.ImportJob, error) {
@@ -175,14 +207,7 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 
 		if _, exists := alreadyImported[g.AppID]; exists {
 			skipped++
-			if err := models.UpdatePlaytimeBySteamAppID(ctx, s.db, userID, steamPlatform, g.AppID, g.PlaytimeForever); err != nil {
-				slog.Warn("import job playtime update failed",
-					"provider", provider,
-					"job_id", jobID,
-					"app_id", g.AppID,
-					"error", err,
-				)
-			}
+			s.publishSteamPlaytime(userID, g.AppID, g.PlaytimeForever)
 			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
 				slog.Warn("import job progress update failed",
 					"provider", provider,
@@ -208,6 +233,7 @@ func (s *Service) runSteamImport(jobID, userID int64, steamID string) {
 			fail("Failed to import game: " + err.Error())
 			return
 		}
+		s.publishSteamPlaytime(userID, g.AppID, g.PlaytimeForever)
 		if added {
 			imported++
 			alreadyImported[g.AppID] = struct{}{}

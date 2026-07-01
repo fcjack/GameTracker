@@ -89,9 +89,15 @@ func TestGetOwnedGames(t *testing.T) {
 	}))
 	defer titleHubServer.Close()
 
+	userStatsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"groups": []any{}})
+	}))
+	defer userStatsServer.Close()
+
 	client := NewClientWithHTTP("client-id", "secret", userServer.Client())
 	client.SetEndpoints("", userServer.URL, xstsServer.URL)
 	client.SetTitleHubURL(titleHubServer.URL)
+	client.SetUserStatsURL(userStatsServer.URL)
 
 	games, err := client.GetOwnedGames(context.Background(), accessToken)
 	if err != nil {
@@ -137,9 +143,15 @@ func TestGetOwnedGamesEmpty(t *testing.T) {
 	}))
 	defer titleHubServer.Close()
 
+	userStatsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		json.NewEncoder(w).Encode(map[string]any{"groups": []any{}})
+	}))
+	defer userStatsServer.Close()
+
 	client := NewClientWithHTTP("id", "secret", userServer.Client())
 	client.SetEndpoints("", userServer.URL, xstsServer.URL)
 	client.SetTitleHubURL(titleHubServer.URL)
+	client.SetUserStatsURL(userStatsServer.URL)
 
 	games, err := client.GetOwnedGames(context.Background(), "access-token")
 	if err != nil {

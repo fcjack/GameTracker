@@ -199,7 +199,7 @@ func (c *Client) Search(query string, limit int) ([]SearchResult, error) {
 
 	for i := range results {
 		if results[i].Cover != nil {
-			results[i].Cover.URL = normalizeCoverURL(results[i].Cover.URL)
+			results[i].Cover.URL = normalizeImageURL(results[i].Cover.URL, "t_cover_big")
 		}
 	}
 
@@ -334,20 +334,9 @@ func (c *Client) GetGameByID(id int64) (*SearchResult, error) {
 	}
 
 	if results[0].Cover != nil {
-		results[0].Cover.URL = normalizeCoverURL(results[0].Cover.URL)
+		results[0].Cover.URL = normalizeImageURL(results[0].Cover.URL, "t_cover_big")
 	}
 	return &results[0], nil
-}
-
-func normalizeCoverURL(raw string) string {
-	if raw == "" {
-		return ""
-	}
-	url := strings.ReplaceAll(raw, "t_thumb", "t_cover_big")
-	if strings.HasPrefix(url, "//") {
-		url = "https:" + url
-	}
-	return url
 }
 
 func ReleaseYear(unixTimestamp int64) int {

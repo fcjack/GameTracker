@@ -20,6 +20,8 @@ import (
 	"github.com/jacksoncoelho/game-tracker/internal/importjob"
 	"github.com/jacksoncoelho/game-tracker/internal/logging"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
+	"github.com/jacksoncoelho/game-tracker/internal/playtime"
+	"github.com/jacksoncoelho/game-tracker/internal/xbox"
 	"github.com/joho/godotenv"
 )
 
@@ -125,6 +127,24 @@ func main() {
 		igdbBaseURL,
 	)
 	importService := importjob.NewService(db, igdbClient, encrypter)
+
+	xboxClient := xbox.NewClient(os.Getenv("XBOX_CLIENT_ID"), os.Getenv("XBOX_CLIENT_SECRET"))
+	playtimeHandler := playtime.NewHandler(db, xboxClient, encrypter)
+	playtimePool := playtime.NewWorkerPool(
+		playtimeHandler,
+		config.PlaytimeWorkerCount(),
+		config.PlaytimeQueueSize(),
+	)
+	importService.SetPlaytimePublisher(playtimePool)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go playtimePool.Run(ctx)
+	logger.Info("playtime worker pool started",
+		"workers", config.PlaytimeWorkerCount(),
+		"queue_size", config.PlaytimeQueueSize(),
+		"rate_per_second", config.PlaytimeRatePerSecond(),
+	)
 
 	if config.LibrarySyncEnabled() {
 		interval := config.LibrarySyncInterval()

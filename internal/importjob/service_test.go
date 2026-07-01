@@ -91,7 +91,7 @@ func TestStartSteamImportImportsGames(t *testing.T) {
 
 	steamClient := steam.NewClientWithHTTP("steam-key", steamServer.URL, steamServer.Client())
 	storeClient := testStoreClient(t, map[int]string{570: "game", 99999: "game"})
-	svc := NewServiceWithSteam(db, igdbClient, steamClient, storeClient)
+	svc := newSteamImportService(db, igdbClient, steamClient, storeClient)
 
 	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
 	if err != nil {
@@ -202,7 +202,7 @@ func TestStartSteamImportSkipsAlreadyImported(t *testing.T) {
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
 	storeClient := testStoreClient(t, map[int]string{570: "game"})
-	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
+	svc := newSteamImportService(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
 
 	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
 	if err != nil {
@@ -296,7 +296,7 @@ func TestStartSteamImportSkipsSoftDeleted(t *testing.T) {
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
 	storeClient := testStoreClient(t, map[int]string{570: "game"})
-	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
+	svc := newSteamImportService(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), storeClient)
 
 	job, err := svc.StartSteamImport(ctx, user.ID, steamID)
 	if err != nil {
@@ -349,7 +349,7 @@ func TestStartSteamImportReturnsExistingActiveJob(t *testing.T) {
 		t.Fatalf("UpdateImportJobProgress() error = %v", err)
 	}
 
-	svc := NewServiceWithSteam(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), testStoreClient(t, nil))
+	svc := newSteamImportService(db, igdb.NewClient("id", "secret", "http://localhost"), steam.NewClient("key"), testStoreClient(t, nil))
 	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
 	if err != nil {
 		t.Fatalf("StartSteamImport() error = %v", err)
@@ -397,7 +397,7 @@ func TestStartSteamImportRestartsStalePendingJob(t *testing.T) {
 	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
-	svc := NewServiceWithSteam(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), testStoreClient(t, nil))
+	svc := newSteamImportService(db, igdbClient, steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()), testStoreClient(t, nil))
 
 	job, err := svc.StartSteamImport(ctx, user.ID, "76561198012345678")
 	if err != nil {
@@ -441,7 +441,7 @@ func TestRunSteamImportWithoutIGDBCredentials(t *testing.T) {
 		t.Fatalf("CreateUser() error = %v", err)
 	}
 
-	svc := NewServiceWithSteam(
+	svc := newSteamImportService(
 		db,
 		igdb.NewClient("", "", "http://localhost"),
 		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
@@ -498,7 +498,7 @@ func TestStartSteamImportSkipsNonGameTypes(t *testing.T) {
 		401920: "dlc",
 		3838:   "music",
 	})
-	svc := NewServiceWithSteam(
+	svc := newSteamImportService(
 		db,
 		igdb.NewClient("", "", "http://localhost"),
 		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
@@ -597,7 +597,7 @@ func TestStartSteamImportPrefersSteamMetadata(t *testing.T) {
 	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
-	svc := NewServiceWithSteam(
+	svc := newSteamImportService(
 		db, igdbClient,
 		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
 		testStoreClient(t, map[int]string{991730: "game"}),
@@ -681,7 +681,7 @@ func TestStartSteamImportSkipsMismatchedIGDBName(t *testing.T) {
 	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
 	igdbClient.SetTokenURL(igdbServer.URL + "/token")
 	igdbClient.SetHTTPClient(igdbServer.Client())
-	svc := NewServiceWithSteam(
+	svc := newSteamImportService(
 		db, igdbClient,
 		steam.NewClientWithHTTP("key", steamServer.URL, steamServer.Client()),
 		testStoreClient(t, map[int]string{9912345: "game"}),

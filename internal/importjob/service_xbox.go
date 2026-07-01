@@ -82,11 +82,12 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 		return
 	}
 
-	owned, err := s.xbox.GetOwnedGames(ctx, tokens.AccessToken)
+	snapshot, err := s.xbox.GetLibrarySnapshot(ctx, tokens.AccessToken)
 	if err != nil {
 		fail(err.Error())
 		return
 	}
+	owned := snapshot.Games
 
 	if err := models.SetImportJobTotal(ctx, s.db, jobID, len(owned)); err != nil {
 		fail("Failed to update import progress")
@@ -108,10 +109,13 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 		}
 		processed++
 
-		if _, exists := alreadyImported[g.TitleID]; exists {
+		game := g
+
+		if _, exists := alreadyImported[game.TitleID]; exists {
 			if hasIGDB {
-				s.syncXboxGameFromIGDB(ctx, g)
+				s.syncXboxGameFromIGDB(ctx, game)
 			}
+			s.publishXboxPlaytime(userID, game)
 			skipped++
 			if err := models.UpdateImportJobProgress(ctx, s.db, jobID, processed, imported, skipped); err != nil {
 				slog.Warn("import job progress update failed",
@@ -126,21 +130,22 @@ func (s *Service) runXboxImport(jobID, userID int64) {
 		var igdbID int64
 		if hasIGDB {
 			var lookupErr error
-			igdbID, lookupErr = s.lookupXboxWithRetry(g.TitleID, g.Name)
+			igdbID, lookupErr = s.lookupXboxWithRetry(game.TitleID, game.Name)
 			if lookupErr != nil {
 				fail("IGDB lookup failed: " + lookupErr.Error())
 				return
 			}
 		}
 
-		added, err := s.importXboxGame(ctx, userID, g, igdbID)
+		added, err := s.importXboxGame(ctx, userID, game, igdbID)
 		if err != nil {
 			fail("Failed to import game: " + err.Error())
 			return
 		}
+		s.publishXboxPlaytime(userID, game)
 		if added {
 			imported++
-			alreadyImported[g.TitleID] = struct{}{}
+			alreadyImported[game.TitleID] = struct{}{}
 		} else {
 			skipped++
 		}
@@ -513,7 +518,7 @@ func (s *Service) persistXboxIGDBGame(ctx context.Context, userID int64, g xbox.
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, xboxPlatform, nil)
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, xboxPlatform, g.PlaytimeMinutes)
 }
 
 func (s *Service) importXboxOnlyGame(ctx context.Context, userID int64, g xbox.OwnedGame) (bool, error) {
@@ -549,5 +554,5 @@ func (s *Service) importXboxOnlyGame(ctx context.Context, userID int64, g xbox.O
 
 	s.fetchCover(ctx, game.ID)
 
-	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, xboxPlatform, nil)
+	return s.addGameToLibraryIfNeeded(ctx, userID, game.ID, xboxPlatform, g.PlaytimeMinutes)
 }

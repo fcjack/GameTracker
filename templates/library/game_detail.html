@@ -13,14 +13,14 @@
 <body class="min-h-screen bg-gray-950 text-white">
     {{template "layout/app_start" .}}
 
-    <main class="max-w-4xl mx-auto px-4 py-10 w-full"
+    <main class="max-w-5xl mx-auto px-4 pb-12 w-full"
           data-page-title="{{.card.Name}} — {{call .T "app.name"}}">
         <a href="/library"
            hx-boost="true"
            hx-target="#app-shell"
            hx-select="#app-shell"
            hx-swap="outerHTML show:window:top"
-           class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors mb-6">
+           class="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition-colors py-4">
             <i class="fas fa-arrow-left"></i>
             {{call .T "game.back_to_library"}}
         </a>

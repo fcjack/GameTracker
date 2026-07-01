@@ -506,6 +506,45 @@ func UpdatePlaytimeBySteamAppID(ctx context.Context, db *pgxpool.Pool, userID in
 	return err
 }
 
+// UpdatePlaytimeByXboxTitleID sets playtime for an active library entry matched by Xbox title ID.
+func UpdatePlaytimeByXboxTitleID(ctx context.Context, db *pgxpool.Pool, userID int64, platform string, titleID, minutes int) (int64, error) {
+	const query = `
+		UPDATE user_games ug
+		SET playtime_minutes = $4, updated_at = NOW()
+		FROM games g
+		WHERE ug.game_id = g.id
+		  AND ug.user_id = $1
+		  AND ug.platform = $2
+		  AND g.xbox_title_id = $3
+		  AND ug.deleted_at IS NULL
+	`
+	ct, err := db.Exec(ctx, query, userID, platform, titleID, minutes)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
+// SetGameXboxTitleIDForUserXboxGame links an Xbox title ID to a library game that is missing one.
+func SetGameXboxTitleIDForUserXboxGame(ctx context.Context, db *pgxpool.Pool, userID int64, platform string, titleID int, name string) (int64, error) {
+	const query = `
+		UPDATE games g
+		SET xbox_title_id = $3, updated_at = NOW()
+		FROM user_games ug
+		WHERE ug.game_id = g.id
+		  AND ug.user_id = $1
+		  AND ug.platform = $2
+		  AND ug.deleted_at IS NULL
+		  AND g.xbox_title_id IS NULL
+		  AND lower(g.name) = lower($4)
+	`
+	ct, err := db.Exec(ctx, query, userID, platform, titleID, name)
+	if err != nil {
+		return 0, err
+	}
+	return ct.RowsAffected(), nil
+}
+
 func SearchUserGames(ctx context.Context, db *pgxpool.Pool, userID int64, query string, limit int) ([]*UserGameWithGame, error) {
 	const searchQuery = `
 		SELECT

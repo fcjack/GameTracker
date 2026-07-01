@@ -72,3 +72,38 @@ func TestUpdatePlaytimeBySteamAppID(t *testing.T) {
 		t.Fatalf("PlaytimeMinutes = %v, want 8520", got.PlaytimeMinutes)
 	}
 }
+
+func TestUpdatePlaytimeByXboxTitleID(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	defer db.Close()
+
+	user, err := CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	game, err := FindOrCreateGameByXboxTitleID(ctx, db, 1144039928, "Halo Infinite", "https://cdn.example.com/halo.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	if err := AddToLibrary(ctx, db, user.ID, game.ID, "Xbox", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	if _, err := UpdatePlaytimeByXboxTitleID(ctx, db, user.ID, "Xbox", 1144039928, 8520); err != nil {
+		t.Fatalf("UpdatePlaytimeByXboxTitleID() error = %v", err)
+	}
+
+	got, err := GetUserGame(ctx, db, user.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserGame() error = %v", err)
+	}
+	if got.PlaytimeMinutes == nil || *got.PlaytimeMinutes != 8520 {
+		t.Fatalf("PlaytimeMinutes = %v, want 8520", got.PlaytimeMinutes)
+	}
+}

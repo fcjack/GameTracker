@@ -1,53 +1,218 @@
 {{define "library/game_detail_content"}}
-<div id="game-detail" class="space-y-8">
-    <div class="flex flex-col sm:flex-row gap-6 sm:gap-8">
-        <div class="w-full sm:w-48 md:w-56 shrink-0">
-            <div class="aspect-[3/4] bg-gray-800 rounded-xl overflow-hidden border border-gray-800">
-                <img src="/library/games/{{.GameID}}/cover" alt="{{.Name}}"
-                     class="w-full h-full object-contain">
-            </div>
+<div id="game-detail">
+    {{$backdrop := ""}}{{if and .Meta .Meta.BackdropURL}}{{$backdrop = .Meta.BackdropURL}}{{end}}
+
+    <div class="game-detail-hero">
+        <div class="game-detail-hero-backdrop">
+            {{if $backdrop}}
+            <img src="{{$backdrop}}" alt="" aria-hidden="true">
+            {{end}}
+            <div class="game-detail-hero-overlay"></div>
         </div>
 
-        <div class="flex-1 min-w-0 space-y-4">
-            <div>
-                <h1 class="text-2xl sm:text-3xl font-bold leading-tight">{{.Name}}</h1>
-                {{if .ReleaseYear}}
-                <p class="mt-1 text-gray-400">{{.ReleaseYear}}</p>
-                {{else}}
-                <p class="mt-1 text-gray-500 text-sm">{{call .T "library.group_unknown_year"}}</p>
-                {{end}}
-                {{if .Platform}}
-                <p class="mt-1 text-sm text-gray-500">{{.Platform}}</p>
-                {{end}}
-                {{if .PlaytimeLabel}}
-                <p class="mt-2 text-sm text-gray-500 flex items-center gap-2">
-                    <i class="fas fa-clock"></i> {{.PlaytimeLabel}}
-                </p>
-                {{end}}
+        <div class="game-detail-hero-content">
+            <div class="game-detail-poster">
+                <img src="/library/games/{{.GameID}}/cover" alt="{{.Name}}"
+                     class="w-full aspect-[3/4] object-contain">
             </div>
 
+            <h1 class="mt-5 text-2xl sm:text-3xl font-bold leading-tight max-w-3xl">{{.Name}}</h1>
+
+            <p class="mt-2 text-sm text-gray-400 flex flex-wrap items-center justify-center gap-x-2 gap-y-1">
+                {{if .ReleaseYear}}<span>{{.ReleaseYear}}</span>{{end}}
+                {{if and .Meta .Meta.Genres}}
+                {{if .ReleaseYear}}<span class="text-gray-600">·</span>{{end}}
+                <span>{{index .Meta.Genres 0}}{{if gt (len .Meta.Genres) 1}}, {{index .Meta.Genres 1}}{{end}}{{if gt (len .Meta.Genres) 2}}, {{index .Meta.Genres 2}}{{end}}</span>
+                {{end}}
+                {{if .Platform}}
+                <span class="text-gray-600">·</span>
+                <span>{{.Platform}}</span>
+                {{end}}
+                {{if .PlaytimeLabel}}
+                <span class="text-gray-600">·</span>
+                <span><i class="fas fa-clock text-gray-500"></i> {{.PlaytimeLabel}}</span>
+                {{end}}
+            </p>
+
             {{if eq .Status "playing"}}
-            <p class="text-sm text-indigo-400 flex items-center gap-2">
+            <p class="mt-2 text-sm text-indigo-400 flex items-center gap-2">
                 <i class="fas fa-play"></i> {{call .T "game.playing"}}
             </p>
             {{else if eq .Status "completed"}}
-            <p class="text-sm text-green-400 flex items-center gap-2">
+            <p class="mt-2 text-sm text-green-400 flex items-center gap-2">
                 <i class="fas fa-check-circle"></i>
                 {{call .T "game.completed"}}{{if .CompletedAt}} {{.CompletedAt.Year}}{{end}}
             </p>
             {{else if eq .Status "dropped"}}
-            <p class="text-sm text-amber-400 flex items-center gap-2">
+            <p class="mt-2 text-sm text-amber-400 flex items-center gap-2">
                 <i class="fas fa-ban"></i>
                 {{call .T "game.dropped"}}{{if .DroppedAt}} {{.DroppedAt.Year}}{{end}}
             </p>
             {{end}}
 
-            {{template "library/game_actions" .}}
+            <div class="mt-5 w-full flex justify-center">
+                {{template "library/game_actions" .}}
+            </div>
         </div>
     </div>
 
+    <div class="game-detail-layout">
+        <div class="game-detail-main">
+            <section>
+                <h2 class="text-lg font-semibold mb-3">{{call .T "game.overview"}}</h2>
+                {{if and .Meta .Meta.Summary}}
+                <p class="text-gray-300 leading-relaxed text-sm sm:text-base">{{.Meta.Summary}}</p>
+                {{else}}
+                <p class="text-gray-500 text-sm">{{call .T "game.no_overview"}}</p>
+                {{end}}
+            </section>
+
+            {{if and .Meta (or .Meta.Themes .Meta.Keywords)}}
+            <section>
+                <div class="flex flex-wrap gap-2">
+                    {{range .Meta.Themes}}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs
+                                 bg-gray-800 border border-gray-700 text-gray-300">
+                        <i class="fas fa-palette text-gray-500 text-[10px]"></i> {{.}}
+                    </span>
+                    {{end}}
+                    {{range .Meta.Keywords}}
+                    <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs
+                                 bg-gray-800/60 border border-gray-800 text-gray-400">
+                        <i class="fas fa-tag text-gray-600 text-[10px]"></i> {{.}}
+                    </span>
+                    {{end}}
+                </div>
+            </section>
+            {{end}}
+        </div>
+
+        <aside class="game-detail-sidebar">
+            {{if and .Meta (or .Meta.CriticScore .Meta.UserScore)}}
+            <section class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+                <h2 class="text-sm font-semibold text-gray-300 mb-4">{{call .T "game.scores"}}</h2>
+                <div class="game-detail-scores">
+                    {{if .Meta.CriticScore}}
+                    <div class="game-detail-score-item">
+                        <div class="game-detail-score-ring game-detail-score-critic">
+                            <span class="game-detail-score-value">{{.Meta.CriticScore}}<span class="game-detail-score-pct">%</span></span>
+                        </div>
+                        <p class="game-detail-score-label">{{call .T "game.critic_score"}}</p>
+                        {{if .Meta.CriticVotes}}
+                        <p class="game-detail-score-votes">{{call .T "game.votes" .Meta.CriticVotes}}</p>
+                        {{end}}
+                    </div>
+                    {{end}}
+                    {{if .Meta.UserScore}}
+                    <div class="game-detail-score-item">
+                        <div class="game-detail-score-ring game-detail-score-user">
+                            <span class="game-detail-score-value">{{.Meta.UserScore}}<span class="game-detail-score-pct">%</span></span>
+                        </div>
+                        <p class="game-detail-score-label">{{call .T "game.user_score"}}</p>
+                        {{if .Meta.UserVotes}}
+                        <p class="game-detail-score-votes">{{call .T "game.votes" .Meta.UserVotes}}</p>
+                        {{end}}
+                    </div>
+                    {{end}}
+                </div>
+            </section>
+            {{end}}
+
+            {{if and .Meta .Meta.HasMetadata}}
+            <section class="bg-gray-900 border border-gray-800 rounded-xl p-5 text-sm">
+                <h2 class="text-sm font-semibold text-gray-300 mb-3">{{call .T "game.details"}}</h2>
+
+                {{if .Meta.GameStatus}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.status"}}</span>
+                    <span class="game-detail-meta-value">{{.Meta.GameStatus}}</span>
+                </div>
+                {{end}}
+
+                {{if .Meta.ReleaseDate}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.release_date"}}</span>
+                    <span class="game-detail-meta-value">{{.Meta.ReleaseDate}}</span>
+                </div>
+                {{else if .ReleaseYear}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.release_date"}}</span>
+                    <span class="game-detail-meta-value">{{.ReleaseYear}}</span>
+                </div>
+                {{end}}
+
+                {{if .Meta.Platforms}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.platforms"}}</span>
+                    <span class="game-detail-meta-value">{{range $i, $p := .Meta.Platforms}}{{if $i}}, {{end}}{{$p}}{{end}}</span>
+                </div>
+                {{end}}
+
+                {{if .Meta.Developers}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.developers"}}</span>
+                    <span class="game-detail-meta-value">{{range $i, $d := .Meta.Developers}}{{if $i}}, {{end}}{{$d}}{{end}}</span>
+                </div>
+                {{end}}
+
+                {{if .Meta.Publishers}}
+                <div class="game-detail-meta-row">
+                    <span class="game-detail-meta-label">{{call .T "game.publishers"}}</span>
+                    <span class="game-detail-meta-value">{{range $i, $p := .Meta.Publishers}}{{if $i}}, {{end}}{{$p}}{{end}}</span>
+                </div>
+                {{end}}
+
+                {{if .Meta.ExternalLinks}}
+                <div class="game-detail-meta-row border-b-0">
+                    <span class="game-detail-meta-label">{{call .T "game.external_links"}}</span>
+                    <div class="game-detail-meta-value">
+                        <div class="game-detail-meta-links">
+                        {{with index .Meta.ExternalLinks "igdb"}}
+                        <a href="{{.}}" target="_blank" rel="noopener noreferrer"
+                           class="px-2.5 py-1 rounded-md text-xs bg-gray-800 border border-gray-700
+                                  text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
+                            IGDB
+                        </a>
+                        {{end}}
+                        {{with index .Meta.ExternalLinks "steam"}}
+                        <a href="{{.}}" target="_blank" rel="noopener noreferrer"
+                           class="px-2.5 py-1 rounded-md text-xs bg-gray-800 border border-gray-700
+                                  text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
+                            Steam
+                        </a>
+                        {{end}}
+                        {{with index .Meta.ExternalLinks "metacritic"}}
+                        <a href="{{.}}" target="_blank" rel="noopener noreferrer"
+                           class="px-2.5 py-1 rounded-md text-xs bg-gray-800 border border-gray-700
+                                  text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
+                            Metacritic
+                        </a>
+                        {{end}}
+                        {{with index .Meta.ExternalLinks "gog"}}
+                        <a href="{{.}}" target="_blank" rel="noopener noreferrer"
+                           class="px-2.5 py-1 rounded-md text-xs bg-gray-800 border border-gray-700
+                                  text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
+                            GOG
+                        </a>
+                        {{end}}
+                        {{with index .Meta.ExternalLinks "epic"}}
+                        <a href="{{.}}" target="_blank" rel="noopener noreferrer"
+                           class="px-2.5 py-1 rounded-md text-xs bg-gray-800 border border-gray-700
+                                  text-gray-300 hover:text-white hover:border-gray-600 transition-colors">
+                            Epic
+                        </a>
+                        {{end}}
+                        </div>
+                    </div>
+                </div>
+                {{end}}
+            </section>
+            {{end}}
+        </aside>
+    </div>
+
     {{if .NeedsIGDBLink}}
-    <section class="bg-gray-900 border border-gray-800 rounded-xl p-6">
+    <section class="mt-8 bg-gray-900 border border-gray-800 rounded-xl p-6">
         <h2 class="text-lg font-semibold mb-1">{{call .T "game.link_igdb"}}</h2>
         <p class="text-sm text-gray-400 mb-4">{{call .T "game.link_igdb_hint" .Name}}</p>
         {{template "library/link_igdb_form" .}}

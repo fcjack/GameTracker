@@ -9,22 +9,26 @@ import (
 
 // OwnedGame is a title from the user's Xbox title history.
 type OwnedGame struct {
-	TitleID  int
-	Name     string
-	ImageURL string
+	TitleID         int
+	SCID            string
+	Name            string
+	ImageURL        string
+	PlaytimeMinutes *int
 }
 
-const titleHistoryDecorations = "TitleHistory,GamePass,image,detail,achievement"
+const titleHistoryDecorations = "TitleHistory,GamePass,image,detail,achievement,scid"
 
 type titleHistoryResponse struct {
 	Titles []titleHistoryEntry `json:"titles"`
 }
 
 type titleHistoryEntry struct {
-	TitleID      json.Number `json:"titleId"`
-	Name         string      `json:"name"`
-	DisplayImage string      `json:"displayImage"`
-	TitleHistory struct {
+	TitleID         json.Number `json:"titleId"`
+	Name            string      `json:"name"`
+	DisplayImage    string      `json:"displayImage"`
+	SCID            string      `json:"scid"`
+	ServiceConfigID string      `json:"serviceConfigId"`
+	TitleHistory    struct {
 		LastTimePlayed string `json:"lastTimePlayed"`
 	} `json:"titleHistory"`
 	GamePass struct {
@@ -42,14 +46,37 @@ type titleHistoryEntry struct {
 	} `json:"achievement"`
 }
 
-// GetOwnedGames fetches the user's library via Title Hub title history, including
-// purchased titles and subscription games the user has actually played.
-func (c *Client) GetOwnedGames(ctx context.Context, accessToken string) ([]OwnedGame, error) {
+// LibrarySnapshot is an authenticated Xbox library fetch without playtime enrichment.
+type LibrarySnapshot struct {
+	Session *XSTSSession
+	Games   []OwnedGame
+}
+
+// GetLibrarySnapshot fetches the user's library without blocking on per-title playtime lookups.
+func (c *Client) GetLibrarySnapshot(ctx context.Context, accessToken string) (*LibrarySnapshot, error) {
 	session, err := c.Authenticate(ctx, accessToken)
 	if err != nil {
 		return nil, err
 	}
 
+	games, err := c.listOwnedGames(ctx, session)
+	if err != nil {
+		return nil, err
+	}
+	return &LibrarySnapshot{Session: session, Games: games}, nil
+}
+
+// GetOwnedGames fetches the user's library via Title Hub title history.
+// Playtime is not fetched; use EnrichGamePlaytime during import for per-title lookups.
+func (c *Client) GetOwnedGames(ctx context.Context, accessToken string) ([]OwnedGame, error) {
+	snapshot, err := c.GetLibrarySnapshot(ctx, accessToken)
+	if err != nil {
+		return nil, err
+	}
+	return snapshot.Games, nil
+}
+
+func (c *Client) listOwnedGames(ctx context.Context, session *XSTSSession) ([]OwnedGame, error) {
 	endpoint := fmt.Sprintf(
 		"%s/users/xuid(%s)/titles/titlehistory/decoration/%s",
 		c.titleHubURL,
@@ -61,7 +88,6 @@ func (c *Client) GetOwnedGames(ctx context.Context, accessToken string) ([]Owned
 	if err := c.getXBLJSON(ctx, endpoint, session, "2", &parsed); err != nil {
 		return nil, err
 	}
-
 	return parseOwnedGames(parsed.Titles)
 }
 
@@ -88,6 +114,7 @@ func parseOwnedGames(entries []titleHistoryEntry) ([]OwnedGame, error) {
 
 		games = append(games, OwnedGame{
 			TitleID:  int(titleID),
+			SCID:     entry.titleSCID(),
 			Name:     name,
 			ImageURL: entry.DisplayImage,
 		})
@@ -137,6 +164,13 @@ func isGamePassProgram(value string) bool {
 func isGamePassSubscription(value string) bool {
 	upper := strings.ToUpper(strings.TrimSpace(value))
 	return strings.HasPrefix(upper, "XGP") || strings.Contains(upper, "GAMEPASS")
+}
+
+func (entry titleHistoryEntry) titleSCID() string {
+	if entry.SCID != "" {
+		return entry.SCID
+	}
+	return entry.ServiceConfigID
 }
 
 func (entry titleHistoryEntry) hasPlayActivity() bool {

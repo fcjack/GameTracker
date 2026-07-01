@@ -84,8 +84,9 @@ func TestStartXboxImportImportsGames(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -122,11 +123,15 @@ func TestStartXboxImportImportsGames(t *testing.T) {
 	}
 	if halo := byName["Halo Infinite"]; halo == nil || halo.Platform != "Xbox" || halo.IGDBId == nil {
 		t.Errorf("Halo Infinite = %+v, want Xbox platform with IGDB id", halo)
+	} else if halo.PlaytimeMinutes == nil || *halo.PlaytimeMinutes != 150 {
+		t.Errorf("Halo Infinite playtime = %v, want 150", halo.PlaytimeMinutes)
 	}
 	if unknown := byName["Unknown Xbox Game"]; unknown == nil || unknown.Platform != "Xbox" {
 		t.Errorf("Unknown Xbox Game = %+v, want Xbox platform", unknown)
 	} else if unknown.IGDBId != nil {
 		t.Errorf("Unknown Xbox Game igdb_id = %v, want nil", *unknown.IGDBId)
+	} else if unknown.PlaytimeMinutes == nil || *unknown.PlaytimeMinutes != 60 {
+		t.Errorf("Unknown Xbox Game playtime = %v, want 60", unknown.PlaytimeMinutes)
 	}
 }
 
@@ -191,8 +196,9 @@ func TestStartXboxImportEnrichesViaIGDBNameSearch(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -286,8 +292,9 @@ func TestStartXboxImportEnrichesReleaseYearViaNameSearch(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -382,8 +389,9 @@ func TestStartXboxImportBackfillsAlreadyImportedYear(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -442,12 +450,11 @@ func TestStartXboxImportSkipsDemoTitles(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(
+	svc := newXboxImportService(
 		db,
 		igdb.NewClient("", "", "http://localhost"),
-		nil,
-		nil,
 		xboxClient,
 		enc,
 	)
@@ -478,6 +485,160 @@ func TestStartXboxImportSkipsDemoTitles(t *testing.T) {
 	}
 	if games[0].Name != "Halo Infinite" {
 		t.Errorf("imported game = %q, want Halo Infinite", games[0].Name)
+	}
+}
+
+func TestStartXboxImportUpdatesPlaytimeOnResync(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const (
+		accessToken = "microsoft-access-token"
+		xuid        = "2535465432123456"
+	)
+	titleID := int(760000000 + time.Now().UnixNano()%1000000)
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      strconv.Itoa(titleID),
+			"name":         "Resync Playtime Game",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=resync.jpg",
+		},
+	})
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		default:
+			w.Write([]byte("[]"))
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, accessToken)
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	existing, err := models.FindOrCreateGameByXboxTitleID(ctx, db, titleID, "Resync Playtime Game", "https://cdn.example.com/resync.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	stalePlaytime := 30
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Xbox", &stalePlaytime); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
+
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].PlaytimeMinutes == nil || *games[0].PlaytimeMinutes != 60 {
+		t.Fatalf("playtime after re-sync = %v, want 60", games[0].PlaytimeMinutes)
+	}
+}
+
+func TestStartXboxImportUpdatesPlaytimeOnResyncAsync(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "test-client")
+	t.Setenv("TWITCH_CLIENT_SECRET", "test-secret")
+
+	const (
+		accessToken = "microsoft-access-token"
+		xuid        = "2535465432123456"
+	)
+	titleID := int(765000000 + time.Now().UnixNano()%1000000)
+
+	xboxServers := newMockXboxServers(t, xuid, []map[string]any{
+		{
+			"titleId":      strconv.Itoa(titleID),
+			"name":         "Async Resync Playtime Game",
+			"displayImage": "https://images-eds-ssl.xboxlive.com/image?url=async-resync.jpg",
+		},
+	})
+
+	igdbServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": "tok", "expires_in": 3600})
+		default:
+			w.Write([]byte("[]"))
+		}
+	}))
+	defer igdbServer.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, enc := setupXboxLinkedUser(t, db, xuid, accessToken)
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	existing, err := models.FindOrCreateGameByXboxTitleID(ctx, db, titleID, "Async Resync Playtime Game", "https://cdn.example.com/async-resync.jpg", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	stalePlaytime := 15
+	if err := models.AddToLibrary(ctx, db, user.ID, existing.ID, "Xbox", &stalePlaytime); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	igdbClient := igdb.NewClient("test-client", "test-secret", igdbServer.URL)
+	igdbClient.SetTokenURL(igdbServer.URL + "/token")
+	igdbClient.SetHTTPClient(igdbServer.Client())
+
+	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
+	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
+	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
+
+	svc, pool := newXboxImportServiceAsync(db, igdbClient, xboxClient, enc)
+	defer pool.Stop()
+
+	job, err := svc.StartXboxImport(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("StartXboxImport() error = %v", err)
+	}
+	waitForImportJob(t, db, job.ID, 5*time.Second)
+	waitForPlaytimeDrain(t, pool, 5*time.Second)
+
+	games, err := models.ListUserGames(ctx, db, user.ID)
+	if err != nil {
+		t.Fatalf("ListUserGames() error = %v", err)
+	}
+	if len(games) != 1 {
+		t.Fatalf("library count = %d, want 1", len(games))
+	}
+	if games[0].PlaytimeMinutes == nil || *games[0].PlaytimeMinutes != 60 {
+		t.Fatalf("playtime after async re-sync = %v, want 60", games[0].PlaytimeMinutes)
 	}
 }
 
@@ -541,8 +702,9 @@ func TestStartXboxImportSkipsAlreadyImported(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -624,8 +786,9 @@ func TestStartXboxImportSkipsSoftDeleted(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -675,7 +838,7 @@ func TestStartXboxImportReturnsExistingActiveJob(t *testing.T) {
 		t.Fatalf("UpdateImportJobProgress() error = %v", err)
 	}
 
-	svc := NewServiceWithProviders(db, igdb.NewClient("id", "secret", "http://localhost"), nil, nil, xbox.NewClient("id", "secret"), enc)
+	svc := newXboxImportService(db, igdb.NewClient("id", "secret", "http://localhost"), xbox.NewClient("id", "secret"), enc)
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
 		t.Fatalf("StartXboxImport() error = %v", err)
@@ -721,8 +884,9 @@ func TestStartXboxImportRestartsStalePendingJob(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(db, igdbClient, nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdbClient, xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -764,12 +928,11 @@ func TestRunXboxImportWithoutIGDBCredentials(t *testing.T) {
 	xboxClient := xbox.NewClientWithHTTP("client-id", "secret", xboxServers.client())
 	xboxClient.SetEndpoints("", xboxServers.userURL, xboxServers.xstsURL)
 	xboxClient.SetTitleHubURL(xboxServers.titleHubURL)
+	xboxClient.SetUserStatsURL(xboxServers.userStatsURL)
 
-	svc := NewServiceWithProviders(
+	svc := newXboxImportService(
 		db,
 		igdb.NewClient("", "", "http://localhost"),
-		nil,
-		nil,
 		xboxClient,
 		enc,
 	)
@@ -833,7 +996,7 @@ func TestStartXboxImportRecordsAPIFailure(t *testing.T) {
 	xboxClient.SetEndpoints("", userServer.URL, xstsServer.URL)
 	xboxClient.SetTitleHubURL(titleHubServer.URL)
 
-	svc := NewServiceWithProviders(db, igdb.NewClient("", "", "http://localhost"), nil, nil, xboxClient, enc)
+	svc := newXboxImportService(db, igdb.NewClient("", "", "http://localhost"), xboxClient, enc)
 
 	job, err := svc.StartXboxImport(ctx, user.ID)
 	if err != nil {
@@ -855,10 +1018,11 @@ func TestStartXboxImportRecordsAPIFailure(t *testing.T) {
 }
 
 type mockXboxServers struct {
-	userURL     string
-	xstsURL     string
-	titleHubURL string
-	httpClient  *http.Client
+	userURL      string
+	xstsURL      string
+	titleHubURL  string
+	userStatsURL string
+	httpClient   *http.Client
 }
 
 func (m *mockXboxServers) client() *http.Client {
@@ -889,15 +1053,54 @@ func newMockXboxServers(t *testing.T, xuid string, titles []map[string]any) *moc
 		json.NewEncoder(w).Encode(map[string]any{"titles": titles})
 	}))
 
+	userStatsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		var req struct {
+			Stats []struct {
+				TitleID string `json:"titleId"`
+			} `json:"stats"`
+		}
+		_ = json.Unmarshal(body, &req)
+
+		groups := make([]map[string]any, 0, len(req.Stats))
+		for _, stat := range req.Stats {
+			var minutes int
+			switch stat.TitleID {
+			case "1144039928":
+				minutes = 150
+			case "888777666":
+				minutes = 320
+			default:
+				if stat.TitleID == "" {
+					continue
+				}
+				minutes = 60
+			}
+			groups = append(groups, map[string]any{
+				"titleid": stat.TitleID,
+				"statlistscollection": []map[string]any{
+					{
+						"stats": []map[string]any{
+							{"name": "MinutesPlayed", "value": minutes},
+						},
+					},
+				},
+			})
+		}
+		json.NewEncoder(w).Encode(map[string]any{"groups": groups})
+	}))
+
 	t.Cleanup(userServer.Close)
 	t.Cleanup(xstsServer.Close)
 	t.Cleanup(titleHubServer.Close)
+	t.Cleanup(userStatsServer.Close)
 
 	return &mockXboxServers{
-		userURL:     userServer.URL,
-		xstsURL:     xstsServer.URL,
-		titleHubURL: titleHubServer.URL,
-		httpClient:  userServer.Client(),
+		userURL:      userServer.URL,
+		xstsURL:      xstsServer.URL,
+		titleHubURL:  titleHubServer.URL,
+		userStatsURL: userStatsServer.URL,
+		httpClient:   userServer.Client(),
 	}
 }
 
