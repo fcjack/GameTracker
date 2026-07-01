@@ -35,26 +35,26 @@ type ExternalGame struct {
 
 // GameDetails is the rich IGDB payload used on the game detail page.
 type GameDetails struct {
-	ID                 int64             `json:"id"`
-	Name               string            `json:"name"`
-	Summary            string            `json:"summary"`
-	Storyline          string            `json:"storyline"`
-	AggregatedRating   float64           `json:"aggregated_rating"`
-	Rating             float64           `json:"rating"`
-	TotalRating        float64           `json:"total_rating"`
-	RatingCount        int               `json:"rating_count"`
-	TotalRatingCount   int               `json:"total_rating_count"`
-	FirstReleaseDate   int64             `json:"first_release_date"`
-	GameStatus         int               `json:"game_status"`
-	Genres             []NamedEntity     `json:"genres"`
-	Themes             []NamedEntity     `json:"themes"`
-	Keywords           []NamedEntity     `json:"keywords"`
-	Platforms          []Platform        `json:"platforms"`
-	InvolvedCompanies  []InvolvedCompany `json:"involved_companies"`
-	Cover              *Cover            `json:"cover"`
-	Artworks           []ImageAsset      `json:"artworks"`
-	Screenshots        []ImageAsset      `json:"screenshots"`
-	ExternalGames      []ExternalGame    `json:"external_games"`
+	ID                int64             `json:"id"`
+	Name              string            `json:"name"`
+	Summary           string            `json:"summary"`
+	Storyline         string            `json:"storyline"`
+	AggregatedRating  float64           `json:"aggregated_rating"`
+	Rating            float64           `json:"rating"`
+	TotalRating       float64           `json:"total_rating"`
+	RatingCount       int               `json:"rating_count"`
+	TotalRatingCount  int               `json:"total_rating_count"`
+	FirstReleaseDate  int64             `json:"first_release_date"`
+	GameStatus        int               `json:"game_status"`
+	Genres            []NamedEntity     `json:"genres"`
+	Themes            []NamedEntity     `json:"themes"`
+	Keywords          []NamedEntity     `json:"keywords"`
+	Platforms         []Platform        `json:"platforms"`
+	InvolvedCompanies []InvolvedCompany `json:"involved_companies"`
+	Cover             *Cover            `json:"cover"`
+	Artworks          []ImageAsset      `json:"artworks"`
+	Screenshots       []ImageAsset      `json:"screenshots"`
+	ExternalGames     []ExternalGame    `json:"external_games"`
 }
 
 func (c *Client) GetGameDetails(id int64) (*GameDetails, error) {

@@ -30,7 +30,9 @@ func TestGetGameDetails(t *testing.T) {
 					Cover:            &Cover{URL: "//images.igdb.com/igdb/image/upload/t_thumb/co42.jpg"},
 					Artworks:         []ImageAsset{{URL: "//images.igdb.com/igdb/image/upload/t_thumb/ar1.jpg"}},
 					InvolvedCompanies: []InvolvedCompany{{
-						Company:   struct{ Name string `json:"name"` }{Name: "Supergiant Games"},
+						Company: struct {
+							Name string `json:"name"`
+						}{Name: "Supergiant Games"},
 						Developer: true,
 						Publisher: true,
 					}},
