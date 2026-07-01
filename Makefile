@@ -1,7 +1,7 @@
 GOLANGCI_LINT_VERSION ?= v2.4.0
 GOLANGCI_LINT = go run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-.PHONY: run css migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix check fix pre-commit install-hooks
+.PHONY: run css screenshots migrate-up migrate-down migration tidy reset rebuild redeploy deploy deploy-down deploy-logs fmt fmt-check lint lint-fix check fix pre-commit install-hooks
 
 run:
 	go run cmd/main.go
@@ -10,6 +10,15 @@ run:
 # Run after adding/changing Tailwind classes in templates/.
 css:
 	npx -y tailwindcss@3.4.17 -c tailwind.config.js -i tailwind.css -o static/css/app.css --minify
+
+# Regenerate docs/screenshots/*.png (requires app running; see docs/screenshots/README.md).
+screenshots:
+	docker run --rm --add-host=host.docker.internal:host-gateway \
+	  -v "$$(pwd):/app" -w /app/scripts \
+	  -e APP_URL=$${APP_URL:-http://host.docker.internal:8080} \
+	  -e SCREENSHOT_USER -e SCREENSHOT_PASSWORD -e SCREENSHOT_GAME_ID \
+	  mcr.microsoft.com/playwright:v1.49.1-jammy \
+	  bash -c 'npm install --silent && node /app/scripts/capture-screenshots.mjs'
 
 migrate-up:
 	go run cmd/main.go migrate up
