@@ -179,6 +179,26 @@ func dashboardYearOptions(ctx context.Context, db *pgxpool.Pool, userID int64) [
 	return options
 }
 
+type PlatformPlaytimeCard struct {
+	Platform      string
+	PlaytimeLabel string
+}
+
+func dashboardPlatformPlaytime(ctx context.Context, db *pgxpool.Pool, userID int64, locale string) []PlatformPlaytimeCard {
+	totals, err := models.ListLinkedPlatformPlaytime(ctx, db, userID)
+	if err != nil {
+		return nil
+	}
+	cards := make([]PlatformPlaytimeCard, 0, len(totals))
+	for _, total := range totals {
+		cards = append(cards, PlatformPlaytimeCard{
+			Platform:      total.Platform,
+			PlaytimeLabel: i18n.FormatPlaytimeDHM(locale, total.Minutes),
+		})
+	}
+	return cards
+}
+
 func dashboardStatsMap(ctx context.Context, db *pgxpool.Pool, userID int64, year int) map[string]int {
 	stats, err := models.GetGameStatistics(ctx, db, userID)
 	if err != nil {
@@ -212,17 +232,19 @@ func (h *AuthHandler) Dashboard(c *gin.Context) {
 	hasGames := stats["Playing"]+stats["Completed"]+stats["Backlog"]+stats["Dropped"] > 0
 	platforms, _ := models.ListUserPlatforms(c.Request.Context(), h.db, userID)
 
+	locale := LocaleFromContext(c)
 	c.HTML(http.StatusOK, "dashboard/index", ViewData(c, gin.H{
-		"username":       username,
-		"activeNav":      "dashboard",
-		"hasGames":       hasGames,
-		"stats":          stats,
-		"year":           year,
-		"years":          dashboardYearOptions(c.Request.Context(), h.db, userID),
-		"libraryGridURL": "/library/games?filter=active",
-		"platforms":      platforms,
-		"filterTitle":    "dashboard.my_library",
-		"filterSubtitle": "dashboard.my_library_active_hint",
+		"username":         username,
+		"activeNav":        "dashboard",
+		"hasGames":         hasGames,
+		"stats":            stats,
+		"year":             year,
+		"years":            dashboardYearOptions(c.Request.Context(), h.db, userID),
+		"libraryGridURL":   "/library/games?filter=active",
+		"platforms":        platforms,
+		"platformPlaytime": dashboardPlatformPlaytime(c.Request.Context(), h.db, userID, locale),
+		"filterTitle":      "dashboard.my_library",
+		"filterSubtitle":   "dashboard.my_library_active_hint",
 	}))
 }
 
@@ -231,9 +253,11 @@ func (h *AuthHandler) DashboardStats(c *gin.Context) {
 	userID := session.Get("user_id").(int64)
 
 	year := dashboardYear(c)
-	c.HTML(http.StatusOK, "dashboard/stats", ViewData(c, gin.H{
-		"stats": dashboardStatsMap(c.Request.Context(), h.db, userID, year),
-		"year":  year,
-		"years": dashboardYearOptions(c.Request.Context(), h.db, userID),
+	locale := LocaleFromContext(c)
+	c.HTML(http.StatusOK, "dashboard/stats_panel", ViewData(c, gin.H{
+		"stats":            dashboardStatsMap(c.Request.Context(), h.db, userID, year),
+		"year":             year,
+		"years":            dashboardYearOptions(c.Request.Context(), h.db, userID),
+		"platformPlaytime": dashboardPlatformPlaytime(c.Request.Context(), h.db, userID, locale),
 	}))
 }

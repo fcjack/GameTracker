@@ -1,10 +1,5 @@
 {{define "dashboard/stats"}}
-<div id="dashboard-stats"
-     hx-get="/dashboard/stats"
-     hx-trigger="libraryUpdated from:body"
-     hx-include="[name='year']"
-     hx-swap="outerHTML"
-     class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 mb-10">
+<div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5 mb-10">
     <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
         <p class="text-3xl font-bold">{{index .stats "Playing"}}</p>
         <p class="mt-1 text-sm text-gray-400">{{call .T "stats.playing"}}</p>
@@ -21,7 +16,7 @@
                     class="bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5
                            text-white text-sm focus:outline-none focus:border-indigo-500"
                     hx-get="/dashboard/stats"
-                    hx-target="#dashboard-stats"
+                    hx-target="#dashboard-stats-panel"
                     hx-trigger="change"
                     hx-include="[name='year']">
                 {{range .years}}

@@ -1,0 +1,26 @@
+{{define "dashboard/platform_playtime"}}
+{{if .platformPlaytime}}
+<div class="mb-10">
+    <h3 class="text-sm font-medium text-gray-400 mb-3">{{call .T "dashboard.platform_playtime"}}</h3>
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        {{range .platformPlaytime}}
+        <div class="bg-gray-900 border border-gray-800 rounded-xl p-5">
+            <div class="flex items-center gap-3 mb-2">
+                {{if eq .Platform "Steam"}}
+                <i class="fab fa-steam text-xl" style="color: #1b9ffa;"></i>
+                <p class="text-sm font-medium text-gray-300">{{call $.T "profile.steam"}}</p>
+                {{else if eq .Platform "Xbox"}}
+                <i class="fab fa-xbox text-xl" style="color: #107c10;"></i>
+                <p class="text-sm font-medium text-gray-300">{{call $.T "profile.xbox"}}</p>
+                {{else}}
+                <p class="text-sm font-medium text-gray-300">{{.Platform}}</p>
+                {{end}}
+            </div>
+            <p class="text-3xl font-bold">{{.PlaytimeLabel}}</p>
+            <p class="mt-1 text-sm text-gray-400">{{call $.T "dashboard.platform_playtime_total"}}</p>
+        </div>
+        {{end}}
+    </div>
+</div>
+{{end}}
+{{end}}

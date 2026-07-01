@@ -1,0 +1,10 @@
+{{define "dashboard/stats_panel"}}
+<div id="dashboard-stats-panel"
+     hx-get="/dashboard/stats"
+     hx-trigger="libraryUpdated from:body"
+     hx-include="[name='year']"
+     hx-swap="outerHTML">
+    {{template "dashboard/stats" .}}
+    {{template "dashboard/platform_playtime" .}}
+</div>
+{{end}}
