@@ -10,7 +10,27 @@ A self-hosted personal game tracking application to manage and track gaming prog
 
 ## Overview
 
-Helios Gaming tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, search IGDB to add new games from the dashboard, filter your existing collection on the library page, track your gaming progress, and manage your personal backlog without any social features or third-party dependencies.
+Helios Gaming tracker is a lightweight web application built with Go that allows you to import your game libraries from Steam and Xbox, search IGDB to add new games from the dashboard, filter your existing collection on the library page, track playtime and status, open rich game detail pages, and manage your personal backlog without any social features or third-party dependencies.
+
+## Screenshots
+
+| Dashboard | Library |
+|-----------|---------|
+| ![Dashboard](docs/screenshots/dashboard.png) | ![Library](docs/screenshots/library.png) |
+
+| Game detail | Sign in |
+|-------------|---------|
+| ![Game detail](docs/screenshots/game-detail.png) | ![Sign in](docs/screenshots/login.png) |
+
+Regenerate after UI changes — see [docs/screenshots/README.md](docs/screenshots/README.md):
+
+```bash
+make screenshots \
+  APP_URL=http://host.docker.internal:8080 \
+  SCREENSHOT_USER=your-username \
+  SCREENSHOT_PASSWORD=your-password \
+  SCREENSHOT_GAME_ID=915
+```
 
 ---
 
@@ -30,11 +50,14 @@ Helios Gaming tracker is a lightweight web application built with Go that allows
 
 ### Core
 - Import game library from Steam and Xbox
+- **Playtime** from Steam library data and Xbox User Stats (background workers after import/sync)
 - Search IGDB from the dashboard and add games to your library
 - Search your imported library by name or platform on the library page
+- **Game detail page** with IGDB overview, critic/user scores, and metadata sidebar
+- **Manual IGDB linking** for imported games missing metadata
 - Choose platform when adding multi-platform games
 - Track game status (Playing, Completed, Dropped, Backlog)
-- Dashboard with live stats and library management
+- Dashboard with live stats, **per-platform playtime totals**, and library management
 - Group library by platform or completion year
 
 ### PWA
@@ -48,9 +71,9 @@ Helios Gaming tracker is a lightweight web application built with Go that allows
 
 | API | Purpose |
 |-----|---------|
-| **Steam API** | Game library import |
-| **Xbox API** | Game library import |
-| **IGDB API** | Dashboard game search and metadata when adding titles |
+| **Steam API** | Game library import and playtime |
+| **Xbox API** | Game library import and playtime (`MinutesPlayed` via User Stats) |
+| **IGDB API** | Dashboard game search, game detail metadata, and import enrichment |
 
 ---
 
@@ -63,13 +86,20 @@ game-tracker/
 ├── internal/
 │   ├── handlers/
 │   ├── models/
+│   ├── importjob/      # Steam/Xbox import jobs + optional scheduler
+│   ├── playtime/       # Async playtime worker pool
+│   ├── xbox/           # OAuth, title history, user stats
 │   └── database/
 ├── templates/
+├── docs/
+│   └── screenshots/
 ├── static/
 │   ├── icons/
 │   ├── manifest.json
 │   └── service-worker.js
 ├── migrations/
+├── scripts/
+│   └── capture-screenshots.mjs
 ├── Dockerfile
 ├── docker-compose.yml
 └── .env.example
@@ -102,12 +132,22 @@ APP_PORT=8080
 # Optional: periodically re-sync linked libraries in the background
 LIBRARY_SYNC_ENABLED=false
 LIBRARY_SYNC_INTERVAL=6h
+# Optional: playtime worker pool (Xbox User Stats after import/sync)
+PLAYTIME_WORKER_COUNT=3
+PLAYTIME_QUEUE_SIZE=256
+PLAYTIME_RETRY_MAX=3
+PLAYTIME_RATE_PER_SECOND=8
 ```
 
 When `LIBRARY_SYNC_ENABLED=true`, a background scheduler re-imports every linked
 Steam and Xbox library on the interval set by `LIBRARY_SYNC_INTERVAL` (Go duration, default `6h`,
 minimum `15m`). It reuses the idempotent import pipeline, so it only adds newly
 acquired games and never collides with a manual import already in progress.
+Re-sync also refreshes playtime for games already in your library.
+
+Playtime for Xbox titles is fetched asynchronously after import/sync via background
+workers (`PLAYTIME_*` settings). Large libraries may take a minute or two to finish
+updating playtime after the import job shows complete.
 
 ### Linking Steam and Xbox
 
@@ -139,8 +179,9 @@ After the app is running, open **Profile** to link external accounts and sync li
 #### IGDB (optional but recommended)
 
 Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` from the [Twitch Developer Console](https://dev.twitch.tv/console)
-(IGDB uses Twitch OAuth). When configured, imports resolve richer metadata and covers; without it,
-Steam/Xbox imports still work using platform-specific data.
+(IGDB uses Twitch OAuth). When configured, imports resolve richer metadata and covers; the game detail
+page shows overview, scores, and metadata. Without IGDB credentials, Steam/Xbox imports still work
+using platform-specific data.
 
 #### Scheduled background sync
 
@@ -184,14 +225,16 @@ go run cmd/main.go
 ### Useful Make Commands
 
 ```bash
-make run       # Run locally without Docker
-make redeploy  # Rebuild and restart the app container
-make reset     # Reset database volumes and restart
-make tidy      # Tidy Go module dependencies
-make check     # Verify gofmt and golangci-lint (same as CI)
-make fix       # Apply gofmt and linter auto-fixes
+make run          # Run locally without Docker
+make redeploy     # Rebuild and restart the app container
+make reset        # Reset database volumes and restart
+make tidy         # Tidy Go module dependencies
+make check        # Verify gofmt and golangci-lint (same as CI)
+make fix          # Apply gofmt and linter auto-fixes
+make css          # Rebuild Tailwind CSS after template changes
+make screenshots  # Regenerate docs/screenshots (app must be running)
 make install-hooks  # Git hooks: auto-fix on commit, check before push to main
-go test ./...  # Run tests
+go test ./...     # Run tests
 ```
 
 ### PWA Installation

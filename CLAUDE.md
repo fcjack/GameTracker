@@ -71,6 +71,9 @@ make install-hooks
 
 # Rebuild static/css/app.css after changing Tailwind classes in templates/ (requires Node.js)
 make css
+
+# Regenerate README screenshots (app must be running; see docs/screenshots/README.md)
+make screenshots SCREENSHOT_USER=... SCREENSHOT_PASSWORD=...
 ```
 
 Tailwind CSS is built locally (no CDN): `tailwind.config.js` + `tailwind.css` compile to `static/css/app.css` via `make css` (also rebuilt in the Docker image's `assets` stage). HTMX is vendored at `static/js/htmx.min.js`. Both are referenced with `?v={{.version}}` for cache busting.
@@ -87,6 +90,10 @@ Copy `.env.example` to `.env`. Required variables:
 - `APP_PORT` — defaults to 8080
 - `LIBRARY_SYNC_ENABLED` — when `true`, runs a background scheduler that periodically re-syncs every linked library (default: `false`)
 - `LIBRARY_SYNC_INTERVAL` — Go duration controlling how often the scheduled sync runs (default: `6h`, minimum: `15m`)
+- `PLAYTIME_WORKER_COUNT` — background workers that fetch/store playtime after import (default: `3`)
+- `PLAYTIME_QUEUE_SIZE` — buffered playtime event queue (default: `256`)
+- `PLAYTIME_RETRY_MAX` — max retries for transient Xbox User Stats failures (default: `3`)
+- `PLAYTIME_RATE_PER_SECOND` — rate limit for Xbox User Stats API (default: `8`)
 
 ## Architecture
 
@@ -95,12 +102,13 @@ Copy `.env.example` to `.env`. Required variables:
 - Loads all `*.html` files recursively from `templates/` into a single `*template.Template`
 - Sets up cookie-based sessions (`gin-contrib/sessions`), then registers routes
 - When `LIBRARY_SYNC_ENABLED=true`, starts `importjob.Scheduler` in a goroutine to periodically re-sync linked libraries (interval from `LIBRARY_SYNC_INTERVAL`)
+- Starts `playtime.WorkerPool` for async Steam/Xbox playtime updates after import/sync
 
 **Routes:**
 - Public: `GET /`, `GET/POST /login`, `GET/POST /register`, `POST /logout`
 - Protected by `handlers.AuthRequired()`:
   - Dashboard: `GET /dashboard`, `GET /dashboard/stats`
-  - Library: `GET /library`, `GET /library/games`, `GET /library/search` (search user's imported games), `GET /library/search/igdb` (IGDB search — dashboard only), `POST /library/games`, `DELETE /library/games/:game_id`, status/complete endpoints
+  - Library: `GET /library`, `GET /library/games`, `GET /library/games/:game_id`, `GET /library/games/:game_id/cover`, `GET /library/search`, `GET /library/search/igdb` (IGDB search — dashboard only), `POST /library/games`, `DELETE /library/games/:game_id`, IGDB link endpoints, status/complete endpoints
   - Profile: `GET /profile`, locale/avatar/password endpoints
   - Steam: `GET /auth/steam`, `GET /auth/steam/callback`, `POST /profile/steam/import`, `POST /profile/steam/clear-library`, `GET /profile/steam/import-status`
   - Xbox: `GET /auth/xbox`, `GET /auth/xbox/callback`, `POST /profile/xbox/import`, `POST /profile/xbox/clear-library`, `GET /profile/xbox/import-status`
@@ -113,11 +121,15 @@ Copy `.env.example` to `.env`. Required variables:
 - `internal/models/` — domain structs and DB query functions together (no separate repository layer); handlers pass `db *pgxpool.Pool` into model functions directly
   - `user.go` — User struct, `CreateUser()`, `GetUserByUsername()`, `CheckPassword()`
   - `linked_account.go` — LinkedAccount struct, `UpsertLinkedAccount()`, `GetLinkedAccount()`, `DeleteLinkedAccount()`, `ListLinkedAccounts()`
-  - `game.go` — Game/UserGame structs, `FindOrCreateGame()`, `ListUserGames()`, `SearchUserGames()`, `AddToLibrary()`, status helpers, `RemoveSteamGamesFromLibrary()`
+  - `game.go` — Game/UserGame structs, `FindOrCreateGame()`, `ListUserGames()`, `SearchUserGames()`, `AddToLibrary()`, status helpers, playtime updates
   - `game_xbox.go` — Xbox title helpers: `FindOrCreateGameByXboxTitleID()`, `ResolveGameForXboxImport()`, `RemoveXboxGamesFromLibrary()`, `ListImportedXboxTitleIDs()`
+  - `game_metadata.go` — IGDB metadata JSON on games
+  - `platform_playtime.go` — `ListLinkedPlatformPlaytime()` for dashboard totals
 - `internal/importjob/` — background import jobs (`StartSteamImport`, `StartXboxImport`) and optional `Scheduler` for periodic re-sync
-- `internal/xbox/` — Xbox Live OAuth client and owned-games API
-- `internal/handlers/` — Gin handlers; `LibraryHandler` holds `db` + `igdb.Client`; `ImportHandler` wires Steam/Xbox import routes; `middleware.go` contains `AuthRequired()`
+- `internal/playtime/` — async playtime worker pool (Xbox User Stats + Steam persist)
+- `internal/xbox/` — Xbox Live OAuth, title history, User Stats playtime (`userstats.go`)
+- `internal/igdb/` — IGDB client, `details.go` for game detail page
+- `internal/handlers/` — Gin handlers; `LibraryHandler` holds `db` + `igdb.Client`; `game_detail.go`; `ImportHandler` wires Steam/Xbox import routes; `middleware.go` contains `AuthRequired()`
 
 **Templates** (`templates/`):
 - Each `.html` file wraps its content in `{{define "folder/filename"}}...{{end}}` (e.g. `templates/auth/login.html` → `{{define "auth/login"}}`)
@@ -148,6 +160,7 @@ Copy `.env.example` to `.env`. Required variables:
 | API | Purpose | Status |
 |-----|---------|--------|
 | Steam OpenID 2.0 | Link Steam account, get SteamID64 | Implemented |
-| Steam Web API | Import game library via encrypted SteamID | Implemented |
+| Steam Web API | Import game library via encrypted SteamID; playtime from `playtime_forever` | Implemented |
 | Xbox Live API (OAuth2) | Link Xbox account, refresh tokens, import title history | Implemented |
-| IGDB API | Dashboard search + metadata when adding/importing games | Implemented |
+| Xbox User Stats API | `MinutesPlayed` per title (async playtime workers) | Implemented |
+| IGDB API | Dashboard search, game detail metadata, import enrichment, manual linking | Implemented |
