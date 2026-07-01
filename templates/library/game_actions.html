@@ -1,0 +1,85 @@
+{{define "library/game_actions"}}
+{{$detail := .DetailView}}
+{{$sp := "0"}}{{if .ShowPlatform}}{{$sp = "1"}}{{end}}
+{{$qs := printf "show_platform=%s" $sp}}{{if $detail}}{{$qs = "view=detail"}}{{end}}
+{{$target := printf "#library-game-%d" .GameID}}{{if $detail}}{{$target = "#game-detail"}}{{end}}
+
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full max-w-md">
+    <button type="button"
+            hx-post="/library/games/{{.GameID}}/playing?{{$qs}}"
+            hx-target="{{$target}}"
+            hx-swap="outerHTML"
+            title="{{call .T "game.mark_playing"}}"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-colors
+                   {{if eq .Status "playing"}}
+                   bg-indigo-950 border-indigo-600 text-indigo-400
+                   {{else}}
+                   bg-gray-800 border-gray-700 text-gray-300
+                   hover:text-indigo-400 hover:border-indigo-800
+                   {{end}}">
+        <i class="fas fa-play"></i>
+        <span class="hidden sm:inline">{{call .T "game.playing"}}</span>
+    </button>
+
+    {{if and .NeedsCompletionYear (ne .Status "completed")}}
+    <button type="button"
+            hx-get="/library/games/{{.GameID}}/complete-form?{{$qs}}"
+            hx-target="#complete-form-{{.GameID}}"
+            hx-swap="innerHTML"
+            title="{{call .T "game.mark_complete"}}"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-colors
+                   bg-gray-800 border-gray-700 text-gray-300
+                   hover:text-green-400 hover:border-green-800">
+        <i class="fas fa-check"></i>
+        <span class="hidden sm:inline">{{call .T "game.mark_complete"}}</span>
+    </button>
+    {{else}}
+    <button type="button"
+            hx-post="/library/games/{{.GameID}}/complete?{{$qs}}"
+            hx-target="{{$target}}"
+            hx-swap="outerHTML"
+            title="{{call .T "game.mark_complete"}}"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-colors
+                   {{if eq .Status "completed"}}
+                   bg-green-950 border-green-600 text-green-400
+                   {{else}}
+                   bg-gray-800 border-gray-700 text-gray-300
+                   hover:text-green-400 hover:border-green-800
+                   {{end}}">
+        <i class="fas fa-check"></i>
+        <span class="hidden sm:inline">{{call .T "game.mark_complete"}}</span>
+    </button>
+    {{end}}
+
+    <button type="button"
+            hx-post="/library/games/{{.GameID}}/dropped?{{$qs}}"
+            hx-target="{{$target}}"
+            hx-swap="outerHTML"
+            title="{{call .T "game.mark_dropped"}}"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-colors
+                   {{if eq .Status "dropped"}}
+                   bg-amber-950 border-amber-600 text-amber-400
+                   {{else}}
+                   bg-gray-800 border-gray-700 text-gray-300
+                   hover:text-amber-400 hover:border-amber-800
+                   {{end}}">
+        <i class="fas fa-ban"></i>
+        <span class="hidden sm:inline">{{call .T "game.mark_dropped"}}</span>
+    </button>
+
+    <button type="button"
+            hx-delete="/library/games/{{.GameID}}?{{$qs}}"
+            hx-target="{{$target}}"
+            hx-swap="outerHTML"
+            hx-confirm="{{call .T "game.remove_confirm" .Name}}"
+            title="{{call .T "game.remove_title"}}"
+            class="flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg border text-sm transition-colors
+                   bg-gray-800 border-gray-700 text-gray-300
+                   hover:text-red-400 hover:border-red-900">
+        <i class="fas fa-trash-alt"></i>
+        <span class="hidden sm:inline">{{call .T "game.remove_title"}}</span>
+    </button>
+</div>
+
+<div id="complete-form-{{.GameID}}"></div>
+{{end}}

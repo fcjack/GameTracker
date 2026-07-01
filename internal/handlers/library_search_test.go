@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -40,6 +41,9 @@ func libraryTestRouter(h *LibraryHandler) *gin.Engine {
 	})
 	r.GET("/library/search", h.SearchLibrary)
 	r.GET("/library/search/igdb", h.SearchIGDB)
+	r.GET("/library/games/:game_id", h.GameDetail)
+	r.GET("/library/games/:game_id/search-igdb", h.SearchIGDBForLink)
+	r.POST("/library/games/:game_id/link-igdb", h.LinkGameToIGDB)
 	return r
 }
 
@@ -225,5 +229,130 @@ func TestSearchIGDBRendersResults(t *testing.T) {
 	}
 	if !strings.Contains(body, "Add to Library") {
 		t.Fatalf("response missing add button:\n%s", body)
+	}
+}
+
+func TestLinkGameToIGDBUpdatesReleaseYear(t *testing.T) {
+	const testToken = "test-access-token"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/token":
+			json.NewEncoder(w).Encode(map[string]any{"access_token": testToken, "expires_in": 3600})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, fmt.Sprintf("igdb_link_%d", time.Now().UnixNano()), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+
+	game, err := models.FindOrCreateGameByXboxTitleID(ctx, db, int(770000000+time.Now().UnixNano()%1000000), "Space Marine 2", "", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByXboxTitleID() error = %v", err)
+	}
+	igdbID := int64(880000000 + time.Now().UnixNano()%1000000)
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Xbox", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	client := igdb.NewClient("test-client", "test-secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.SetHTTPClient(server.Client())
+
+	h := NewLibraryHandler(db, client)
+	r := libraryTestRouter(h)
+	cookies := sessionCookies(t, r, user.ID, user.Username)
+
+	form := url.Values{}
+	form.Set("igdb_id", strconv.FormatInt(igdbID, 10))
+	form.Set("name", "Warhammer 40,000: Space Marine II")
+	form.Set("release_year", "2024")
+	form.Set("category_igdb_value", "0")
+	form.Set("platforms", "Xbox Series X|S")
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/library/games/"+strconv.FormatInt(game.ID, 10)+"/link-igdb?view=detail", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("LinkGameToIGDB() status = %d, want %d body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), `id="game-detail"`) {
+		t.Errorf("response should render game detail partial, got: %s", w.Body.String())
+	}
+
+	updated, err := models.GetUserGame(ctx, db, user.ID, game.ID)
+	if err != nil {
+		t.Fatalf("GetUserGame() error = %v body=%s", err, w.Body.String())
+	}
+	if updated.ReleaseYear != 2024 {
+		t.Errorf("release_year = %d, want 2024", updated.ReleaseYear)
+	}
+	if updated.IGDBId == nil || *updated.IGDBId != igdbID {
+		t.Errorf("igdb_id = %v, want %d", updated.IGDBId, igdbID)
+	}
+}
+
+func TestGameDetailPageRenders(t *testing.T) {
+	t.Parallel()
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := context.Background()
+	user, err := models.CreateUser(ctx, db, fmt.Sprintf("detail_%d", time.Now().UnixNano()), "password")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+
+	game, err := models.FindOrCreateGame(ctx, db, 990000001, "Detail Test Game", "", 2020, []string{"PC"}, cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGame() error = %v", err)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "PC", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	h := NewLibraryHandler(db, nil)
+	r := libraryTestRouter(h)
+	cookies := sessionCookies(t, r, user.ID, user.Username)
+
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/library/games/"+strconv.FormatInt(game.ID, 10), nil)
+	for _, c := range cookies {
+		req.AddCookie(c)
+	}
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GameDetail() status = %d, want %d body=%s", w.Code, http.StatusOK, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "Detail Test Game") {
+		t.Errorf("response should include game name, got: %s", body)
+	}
+	if !strings.Contains(body, `id="game-detail"`) {
+		t.Errorf("response should include game detail section")
 	}
 }

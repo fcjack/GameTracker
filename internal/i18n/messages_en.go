@@ -126,6 +126,13 @@ var enMessages = map[string]string{
 	"game.playtime_hours_minute":  "%d H and %d minute",
 	"game.playtime_hours_minutes": "%d H and %d minutes",
 
+	"game.link_igdb":             "Find on IGDB",
+	"game.link_igdb_hint":        "Search IGDB to match %s and set its release year.",
+	"game.link_igdb_placeholder": "Search IGDB...",
+	"game.link_igdb_confirm":     "Use this match",
+	"game.link_igdb_no_results":  "No IGDB results. Try a shorter or alternate title.",
+	"game.back_to_library":       "Back to library",
+
 	"search.in_library":       "In Library",
 	"search.add_to_library":   "Add to Library",
 	"search.added_to_library": "Added to Library",

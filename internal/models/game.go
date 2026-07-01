@@ -283,6 +283,69 @@ func MergeGameInto(ctx context.Context, db *pgxpool.Pool, fromID, toID int64) er
 	return tx.Commit(ctx)
 }
 
+// LinkGameFromIGDB attaches IGDB metadata to an existing game row, preserving platform IDs.
+func LinkGameFromIGDB(
+	ctx context.Context,
+	db *pgxpool.Pool,
+	gameID int64,
+	igdbID int64,
+	name, coverURL string,
+	releaseYear int,
+	platforms []string,
+	categoryID int64,
+) (*Game, error) {
+	game, err := GetGameByID(ctx, db, gameID)
+	if err != nil {
+		return nil, err
+	}
+
+	if game.XboxTitleID != nil {
+		return ResolveGameForXboxImport(
+			ctx, db, *game.XboxTitleID, igdbID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
+	if game.SteamAppID != nil {
+		return ResolveGameForSteamImport(
+			ctx, db, *game.SteamAppID, igdbID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
+
+	igdbGame, err := GetGameByIGDBID(ctx, db, igdbID)
+	if err != nil && err != pgx.ErrNoRows {
+		return nil, err
+	}
+	if igdbGame != nil && igdbGame.ID != gameID {
+		if err := MergeGameInto(ctx, db, gameID, igdbGame.ID); err != nil {
+			return nil, err
+		}
+		gameID = igdbGame.ID
+	}
+
+	const query = `
+		UPDATE games
+		SET igdb_id = $2,
+		    category_id = $3,
+		    name = $4,
+		    cover_url = CASE WHEN $5 <> '' THEN $5 ELSE cover_url END,
+		    platforms = CASE WHEN cardinality($6::text[]) > 0 THEN $6 ELSE platforms END,
+		    release_year = CASE WHEN $7 > 0 THEN $7 ELSE release_year END,
+		    updated_at = NOW()
+		WHERE id = $1
+		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+	`
+	var g Game
+	err = db.QueryRow(ctx, query, gameID, igdbID, categoryID, name, coverURL, platforms, releaseYear).Scan(
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.CreatedAt, &g.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	return &g, nil
+}
+
 // ResolveGameForSteamImport returns the canonical games row for a Steam title matched to IGDB,
 // merging duplicate steam-only and igdb-only rows when both exist.
 func ResolveGameForSteamImport(

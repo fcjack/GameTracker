@@ -1,0 +1,37 @@
+{{define "library/link_igdb_form"}}
+{{$id := .GameID}}{{if not $id}}{{$id = .gameID}}{{end}}
+{{$name := .Name}}{{if not $name}}{{$name = .name}}{{end}}
+{{$searchQuery := .SearchQuery}}{{if not $searchQuery}}{{$searchQuery = .searchQuery}}{{end}}
+{{$detail := .DetailView}}{{if not $detail}}{{$detail = .detailView}}{{end}}
+{{$sp := "0"}}{{if .ShowPlatform}}{{$sp = "1"}}{{else if .showPlatform}}{{$sp = "1"}}{{end}}
+{{$qs := printf "show_platform=%s" $sp}}{{if $detail}}{{$qs = "view=detail"}}{{end}}
+
+<div class="{{if not $detail}}mt-2 {{end}}space-y-3{{if not $detail}} p-3 bg-gray-800 border border-gray-700 rounded-lg{{end}}">
+    {{if not $detail}}
+    <p class="text-xs text-gray-300">{{call .T "game.link_igdb_hint" $name}}</p>
+    {{end}}
+    <input type="search"
+           name="q"
+           value="{{$name}}"
+           placeholder="{{call .T "game.link_igdb_placeholder"}}"
+           autocomplete="off"
+           hx-get="/library/games/{{$id}}/search-igdb?{{$qs}}"
+           hx-trigger="input changed delay:300ms, search"
+           hx-target="#link-igdb-results-{{$id}}"
+           hx-include="this"
+           class="w-full text-sm bg-gray-900 border border-gray-700 rounded-lg px-3 py-2
+                  text-white placeholder-gray-500 focus:outline-none focus:border-indigo-500">
+    <div id="link-igdb-results-{{$id}}"
+         hx-get="/library/games/{{$id}}/search-igdb?{{$qs}}&q={{$searchQuery}}"
+         hx-trigger="load"
+         hx-swap="innerHTML">
+    </div>
+    {{if not $detail}}
+    <button type="button"
+            onclick="document.getElementById('link-igdb-form-{{$id}}').innerHTML = ''"
+            class="w-full text-xs text-gray-400 hover:text-white transition-colors py-1">
+        {{call .T "game.cancel"}}
+    </button>
+    {{end}}
+</div>
+{{end}}

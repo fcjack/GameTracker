@@ -3,6 +3,7 @@ package handlers
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -25,9 +26,12 @@ type LibraryHandler struct {
 type libraryGameCard struct {
 	*models.UserGameWithGame
 	ShowPlatform        bool
+	DetailView          bool
 	NeedsCompletionYear bool
+	NeedsIGDBLink       bool
 	PlaytimeLabel       string
 	CurrentYear         int
+	SearchQuery         string
 	Lang                string
 	T                   func(string, ...any) string
 }
@@ -37,6 +41,10 @@ type libraryGameGroup struct {
 	Games []libraryGameCard
 }
 
+func igdbConfigured() bool {
+	return os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
+}
+
 func toLibraryCardWithLocale(locale string, g *models.UserGameWithGame, showPlatform bool) libraryGameCard {
 	currentYear := time.Now().Year()
 	card := libraryGameCard{
@@ -44,12 +52,14 @@ func toLibraryCardWithLocale(locale string, g *models.UserGameWithGame, showPlat
 		ShowPlatform:        showPlatform,
 		CurrentYear:         currentYear,
 		NeedsCompletionYear: g.ReleaseYear > 0 && g.ReleaseYear < currentYear,
+		NeedsIGDBLink:       g.ReleaseYear <= 0 && igdbConfigured(),
 		Lang:                locale,
 		T:                   i18n.NewTranslator(locale),
 	}
 	if g.PlaytimeMinutes != nil {
 		card.PlaytimeLabel = i18n.FormatPlaytime(locale, *g.PlaytimeMinutes)
 	}
+	card.SearchQuery = url.QueryEscape(g.Name)
 	return card
 }
 
@@ -114,6 +124,33 @@ func NewLibraryHandler(db *pgxpool.Pool, igdbClient *igdb.Client) *LibraryHandle
 		igdb:   igdbClient,
 		covers: cover.NewResolver(db, igdbClient),
 	}
+}
+
+func (h *LibraryHandler) GameDetail(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+	username := session.Get("username").(string)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	game, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	card := toLibraryCard(c, game, true)
+	card.DetailView = true
+
+	c.HTML(http.StatusOK, "library/game_detail", ViewData(c, gin.H{
+		"username":  username,
+		"activeNav": "library",
+		"card":      card,
+	}))
 }
 
 func (h *LibraryHandler) LibraryPage(c *gin.Context) {
@@ -276,7 +313,7 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 	for _, r := range results {
 		rws := resultWithStatus{
 			SearchResult: r,
-			ReleaseYear:  igdb.ReleaseYear(r.FirstReleaseDate),
+			ReleaseYear:  igdb.ReleaseYearFromResult(&r),
 		}
 		if r.Cover != nil {
 			rws.CoverURL = r.Cover.URL
@@ -290,6 +327,156 @@ func (h *LibraryHandler) SearchIGDB(c *gin.Context) {
 		"results": enriched,
 		"userID":  userID,
 	}))
+}
+
+func (h *LibraryHandler) LinkIGDBForm(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	game, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	if game.ReleaseYear > 0 || !igdbConfigured() {
+		c.Status(http.StatusOK)
+		return
+	}
+
+	c.HTML(http.StatusOK, "library/link_igdb_form", ViewData(c, gin.H{
+		"gameID":       gameID,
+		"name":         game.Name,
+		"searchQuery":  url.QueryEscape(game.Name),
+		"showPlatform": showPlatformFromQuery(c),
+		"detailView":   detailViewFromQuery(c),
+	}))
+}
+
+func (h *LibraryHandler) SearchIGDBForLink(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	if _, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID); err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	query := strings.TrimSpace(c.Query("q"))
+	if query == "" {
+		c.HTML(http.StatusOK, "library/link_igdb_results", ViewData(c, gin.H{
+			"gameID":     gameID,
+			"detailView": detailViewFromQuery(c),
+		}))
+		return
+	}
+
+	results, err := h.igdb.Search(query, 10)
+	if err != nil {
+		c.HTML(http.StatusOK, "library/link_igdb_results", ViewData(c, gin.H{
+			"gameID":     gameID,
+			"error":      "error.search_failed",
+			"detailView": detailViewFromQuery(c),
+		}))
+		return
+	}
+
+	type resultWithYear struct {
+		igdb.SearchResult
+		ReleaseYear int
+		CoverURL    string
+	}
+
+	enriched := make([]resultWithYear, 0, len(results))
+	for _, r := range results {
+		rwy := resultWithYear{
+			SearchResult: r,
+			ReleaseYear:  igdb.ReleaseYearFromResult(&r),
+		}
+		if r.Cover != nil {
+			rwy.CoverURL = r.Cover.URL
+		}
+		enriched = append(enriched, rwy)
+	}
+
+	c.HTML(http.StatusOK, "library/link_igdb_results", ViewData(c, gin.H{
+		"gameID":       gameID,
+		"results":      enriched,
+		"showPlatform": showPlatformFromQuery(c),
+		"detailView":   detailViewFromQuery(c),
+	}))
+}
+
+func (h *LibraryHandler) LinkGameToIGDB(c *gin.Context) {
+	session := sessions.Default(c)
+	userID := session.Get("user_id").(int64)
+
+	gameID, err := strconv.ParseInt(c.Param("game_id"), 10, 64)
+	if err != nil {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	if _, err := models.GetUserGame(c.Request.Context(), h.db, userID, gameID); err != nil {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+
+	igdbID, err := strconv.ParseInt(c.PostForm("igdb_id"), 10, 64)
+	if err != nil || igdbID <= 0 {
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	name := c.PostForm("name")
+	coverURL := c.PostForm("cover_url")
+	releaseYear, _ := strconv.Atoi(c.PostForm("release_year"))
+
+	platforms := c.PostFormArray("platforms")
+	if platforms == nil {
+		platforms = []string{}
+	}
+
+	categoryIGDBValue, _ := strconv.Atoi(c.PostForm("category_igdb_value"))
+	cat, err := models.GetCategoryByIGDBValue(c.Request.Context(), h.db, categoryIGDBValue)
+	if err != nil {
+		cat, err = models.GetCategoryByIGDBValue(c.Request.Context(), h.db, 0)
+		if err != nil {
+			c.AbortWithStatus(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	linked, err := models.LinkGameFromIGDB(
+		c.Request.Context(), h.db, gameID,
+		igdbID, name, coverURL, releaseYear, platforms, cat.ID,
+	)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	_ = h.covers.FetchAndStore(c.Request.Context(), linked.ID)
+
+	updated, err := models.GetUserGame(c.Request.Context(), h.db, userID, linked.ID)
+	if err != nil {
+		c.AbortWithStatus(http.StatusInternalServerError)
+		return
+	}
+
+	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
+	h.renderGameUpdate(c, updated, showPlatformFromQuery(c))
 }
 
 func (h *LibraryHandler) AddGame(c *gin.Context) {
@@ -389,6 +576,12 @@ func (h *LibraryHandler) RemoveGame(c *gin.Context) {
 		return
 	}
 
+	if detailViewFromQuery(c) {
+		c.Header("HX-Redirect", "/library")
+		c.Status(http.StatusOK)
+		return
+	}
+
 	c.Header("HX-Trigger", "libraryUpdated")
 	c.Status(http.StatusOK)
 }
@@ -420,6 +613,7 @@ func (h *LibraryHandler) CompleteGameForm(c *gin.Context) {
 		"releaseYear":  game.ReleaseYear,
 		"years":        completionYearOptions(game.ReleaseYear, currentYear),
 		"showPlatform": showPlatformFromQuery(c),
+		"detailView":   detailViewFromQuery(c),
 	}))
 }
 
@@ -450,7 +644,7 @@ func (h *LibraryHandler) CompleteGame(c *gin.Context) {
 			return
 		}
 		c.Header("HX-Trigger-After-Swap", "libraryUpdated")
-		h.renderGameCard(c, updated, showPlatformFromQuery(c))
+		h.renderGameUpdate(c, updated, showPlatformFromQuery(c))
 		return
 	}
 
@@ -482,11 +676,15 @@ func (h *LibraryHandler) CompleteGame(c *gin.Context) {
 	}
 
 	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
-	h.renderGameCard(c, updated, showPlatformFromQuery(c))
+	h.renderGameUpdate(c, updated, showPlatformFromQuery(c))
 }
 
 func showPlatformFromQuery(c *gin.Context) bool {
 	return c.Query("show_platform") != "0"
+}
+
+func detailViewFromQuery(c *gin.Context) bool {
+	return c.Query("view") == "detail"
 }
 
 func (h *LibraryHandler) SetPlaying(c *gin.Context) {
@@ -531,11 +729,21 @@ func (h *LibraryHandler) setGameStatus(c *gin.Context, status string) {
 	}
 
 	c.Header("HX-Trigger-After-Swap", "libraryUpdated")
-	h.renderGameCard(c, updated, showPlatformFromQuery(c))
+	h.renderGameUpdate(c, updated, showPlatformFromQuery(c))
 }
 
 func (h *LibraryHandler) renderGameCard(c *gin.Context, game *models.UserGameWithGame, showPlatform bool) {
 	c.HTML(http.StatusOK, "library/game_card", toLibraryCard(c, game, showPlatform))
+}
+
+func (h *LibraryHandler) renderGameUpdate(c *gin.Context, game *models.UserGameWithGame, showPlatform bool) {
+	if detailViewFromQuery(c) {
+		card := toLibraryCard(c, game, true)
+		card.DetailView = true
+		c.HTML(http.StatusOK, "library/game_detail_content", card)
+		return
+	}
+	h.renderGameCard(c, game, showPlatform)
 }
 
 func ServeCoverPlaceholder(c *gin.Context) {

@@ -126,6 +126,13 @@ var ptBRMessages = map[string]string{
 	"game.playtime_hours_minute":  "%d h e %d minuto",
 	"game.playtime_hours_minutes": "%d h e %d minutos",
 
+	"game.link_igdb":             "Buscar no IGDB",
+	"game.link_igdb_hint":        "Busque no IGDB para associar %s e definir o ano de lançamento.",
+	"game.link_igdb_placeholder": "Buscar no IGDB...",
+	"game.link_igdb_confirm":     "Usar este jogo",
+	"game.link_igdb_no_results":  "Nenhum resultado no IGDB. Tente um título mais curto ou alternativo.",
+	"game.back_to_library":       "Voltar à biblioteca",
+
 	"search.in_library":       "Na biblioteca",
 	"search.add_to_library":   "Adicionar à biblioteca",
 	"search.added_to_library": "Adicionado à biblioteca",

@@ -1,0 +1,47 @@
+{{define "library/link_igdb_results"}}
+{{$detail := .detailView}}
+{{$sp := "0"}}{{if .showPlatform}}{{$sp = "1"}}{{end}}
+{{$qs := printf "show_platform=%s" $sp}}{{if $detail}}{{$qs = "view=detail"}}{{end}}
+{{$target := printf "#library-game-%d" .gameID}}{{if $detail}}{{$target = "#game-detail"}}{{end}}
+
+{{if .error}}
+<p class="text-sm text-red-400 py-1">{{call $.T .error}}</p>
+{{else if not .results}}
+<p class="text-sm text-gray-500 py-1">{{call $.T "game.link_igdb_no_results"}}</p>
+{{else}}
+<div class="space-y-2 max-h-72 overflow-y-auto">
+    {{range .results}}
+    <form hx-post="/library/games/{{$.gameID}}/link-igdb?{{$qs}}"
+          hx-target="{{$target}}"
+          hx-swap="outerHTML"
+          class="flex gap-3 items-start p-3 rounded-lg border border-gray-700 bg-gray-900/60 hover:border-indigo-800">
+        <div class="w-12 h-16 shrink-0 bg-gray-800 rounded overflow-hidden flex items-center justify-center">
+            <img src="{{if .CoverURL}}{{.CoverURL}}{{else}}/library/cover-placeholder{{end}}"
+                 alt=""
+                 class="w-full h-full object-contain"
+                 loading="lazy"
+                 onerror="this.onerror=null;this.src='/library/cover-placeholder';">
+        </div>
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium leading-tight line-clamp-2" title="{{.Name}}">{{.Name}}</p>
+            {{if .ReleaseYear}}
+            <p class="text-xs text-gray-500 mt-0.5">{{.ReleaseYear}}</p>
+            {{end}}
+            <input type="hidden" name="igdb_id" value="{{.ID}}">
+            <input type="hidden" name="name" value="{{.Name}}">
+            <input type="hidden" name="cover_url" value="{{.CoverURL}}">
+            <input type="hidden" name="release_year" value="{{.ReleaseYear}}">
+            <input type="hidden" name="category_igdb_value" value="{{.Category}}">
+            {{range .Platforms}}
+            <input type="hidden" name="platforms" value="{{.Name}}">
+            {{end}}
+            <button type="submit"
+                    class="mt-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg px-3 py-1.5 transition-colors">
+                {{call $.T "game.link_igdb_confirm"}}
+            </button>
+        </div>
+    </form>
+    {{end}}
+</div>
+{{end}}
+{{end}}
