@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.8.0](https://github.com/fcjack/GameTracker/compare/v0.7.0...v0.8.0) (2026-07-06)
+
+
+### Features
+
+* add privacy policy page and 128x128 branding icon ([d45be9c](https://github.com/fcjack/GameTracker/commit/d45be9c321d60c5226402a2fb7d655a81bcef83e))
+* **db:** add Epic provider and catalog identifiers to games ([300436a](https://github.com/fcjack/GameTracker/commit/300436ad5d12426dc85544dcf9f96ee5f427ff41)), closes [#36](https://github.com/fcjack/GameTracker/issues/36)
+* **epic:** add OAuth client and account linking handlers ([94790ce](https://github.com/fcjack/GameTracker/commit/94790ce5fc535592e0addcb87a5776290a616412)), closes [#37](https://github.com/fcjack/GameTracker/issues/37)
+* **epic:** add OAuth token refresh ([5413fa3](https://github.com/fcjack/GameTracker/commit/5413fa320b398182b3ffac6088307351f5c2594a)), closes [#38](https://github.com/fcjack/GameTracker/issues/38)
+* **epic:** fetch user game library via EGS library service ([1a95e1d](https://github.com/fcjack/GameTracker/commit/1a95e1d5d0b2ed06149435f8b99c26fddeeb9cf7)), closes [#39](https://github.com/fcjack/GameTracker/issues/39)
+* **handlers:** Epic import, clear-library, and import-status routes ([6e8e5fb](https://github.com/fcjack/GameTracker/commit/6e8e5fbac25d632eade76ef350d3bd88ad8fa544)), closes [#42](https://github.com/fcjack/GameTracker/issues/42)
+* **igdb:** lookup games by Epic catalog item id ([1e53c98](https://github.com/fcjack/GameTracker/commit/1e53c98ea4336cd35772756572968f3befb5183b)), closes [#40](https://github.com/fcjack/GameTracker/issues/40)
+* **import:** Epic library import job ([1c9335d](https://github.com/fcjack/GameTracker/commit/1c9335d3d00fd0841b3a23c23c1dd77c8beb2ea7)), closes [#41](https://github.com/fcjack/GameTracker/issues/41)
+* **ui:** Epic sync, clear, and import progress on profile ([b17ff7a](https://github.com/fcjack/GameTracker/commit/b17ff7a90fbf9f7677b930a3cca6e4a425c4f8de)), closes [#43](https://github.com/fcjack/GameTracker/issues/43)
+
 ## [0.7.0](https://github.com/fcjack/GameTracker/compare/v0.6.0...v0.7.0) (2026-07-01)
 
 
