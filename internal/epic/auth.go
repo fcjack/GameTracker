@@ -90,6 +90,25 @@ func (c *Client) ExchangeCode(ctx context.Context, code, redirectURI string) (*T
 	return c.requestToken(ctx, form)
 }
 
+func (c *Client) RefreshToken(ctx context.Context, refreshToken string) (*TokenPair, error) {
+	if refreshToken == "" {
+		return nil, fmt.Errorf("epic: refresh token is required")
+	}
+
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+
+	pair, err := c.requestToken(ctx, form)
+	if err != nil {
+		return nil, err
+	}
+	if pair.RefreshToken == "" {
+		pair.RefreshToken = refreshToken
+	}
+	return pair, nil
+}
+
 func (c *Client) requestToken(ctx context.Context, form url.Values) (*TokenPair, error) {
 	if !c.Configured() {
 		return nil, fmt.Errorf("epic: client credentials are not configured")
