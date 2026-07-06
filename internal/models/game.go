@@ -17,17 +17,19 @@ type Category struct {
 }
 
 type Game struct {
-	ID          int64
-	IGDBId      *int64
-	SteamAppID  *int
-	XboxTitleID *int
-	CategoryID  int64
-	Name        string
-	CoverURL    string
-	Platforms   []string
-	ReleaseYear int
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                int64
+	IGDBId            *int64
+	SteamAppID        *int
+	XboxTitleID       *int
+	EpicCatalogItemID *string
+	EpicNamespace     string
+	CategoryID        int64
+	Name              string
+	CoverURL          string
+	Platforms         []string
+	ReleaseYear       int
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
 }
 
 type UserGame struct {
@@ -187,13 +189,13 @@ func FindOrCreateGameWithSteamAppID(
 			platforms    = EXCLUDED.platforms,
 			release_year = EXCLUDED.release_year,
 			updated_at   = NOW()
-		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err := db.QueryRow(ctx, query,
 		igdbID, steamAppID, categoryID, name, coverURL, platforms, releaseYear,
 	).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	return &g, err
@@ -201,13 +203,13 @@ func FindOrCreateGameWithSteamAppID(
 
 func GetGameByID(ctx context.Context, db *pgxpool.Pool, gameID int64) (*Game, error) {
 	const query = `
-		SELECT id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		SELECT id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 		FROM games
 		WHERE id = $1
 	`
 	var g Game
 	err := db.QueryRow(ctx, query, gameID).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	if err != nil {
@@ -218,13 +220,13 @@ func GetGameByID(ctx context.Context, db *pgxpool.Pool, gameID int64) (*Game, er
 
 func GetGameBySteamAppID(ctx context.Context, db *pgxpool.Pool, steamAppID int) (*Game, error) {
 	const query = `
-		SELECT id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		SELECT id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 		FROM games
 		WHERE steam_app_id = $1
 	`
 	var g Game
 	err := db.QueryRow(ctx, query, steamAppID).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	if err != nil {
@@ -235,13 +237,13 @@ func GetGameBySteamAppID(ctx context.Context, db *pgxpool.Pool, steamAppID int) 
 
 func GetGameByIGDBID(ctx context.Context, db *pgxpool.Pool, igdbID int64) (*Game, error) {
 	const query = `
-		SELECT id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		SELECT id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 		FROM games
 		WHERE igdb_id = $1
 	`
 	var g Game
 	err := db.QueryRow(ctx, query, igdbID).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	if err != nil {
@@ -305,6 +307,12 @@ func LinkGameFromIGDB(
 			name, coverURL, releaseYear, platforms, categoryID,
 		)
 	}
+	if game.EpicCatalogItemID != nil {
+		return ResolveGameForEpicImport(
+			ctx, db, *game.EpicCatalogItemID, igdbID,
+			name, coverURL, releaseYear, platforms, categoryID,
+		)
+	}
 	if game.SteamAppID != nil {
 		return ResolveGameForSteamImport(
 			ctx, db, *game.SteamAppID, igdbID,
@@ -333,11 +341,11 @@ func LinkGameFromIGDB(
 		    release_year = CASE WHEN $7 > 0 THEN $7 ELSE release_year END,
 		    updated_at = NOW()
 		WHERE id = $1
-		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err = db.QueryRow(ctx, query, gameID, igdbID, categoryID, name, coverURL, platforms, releaseYear).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	if err != nil {
@@ -433,11 +441,11 @@ func FindOrCreateGameBySteamAppID(
 			name      = EXCLUDED.name,
 			cover_url = CASE WHEN EXCLUDED.cover_url <> '' THEN EXCLUDED.cover_url ELSE games.cover_url END,
 			updated_at = NOW()
-		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err := db.QueryRow(ctx, query, steamAppID, categoryID, name, coverURL).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	return &g, err
@@ -463,13 +471,13 @@ func LinkIGDBToSteamGame(
 		    release_year = $7,
 		    updated_at = NOW()
 		WHERE steam_app_id = $1
-		RETURNING id, igdb_id, steam_app_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at
+		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err := db.QueryRow(ctx, query,
 		steamAppID, igdbID, categoryID, name, coverURL, platforms, releaseYear,
 	).Scan(
-		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
+		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	return &g, err

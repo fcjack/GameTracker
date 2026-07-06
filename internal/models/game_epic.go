@@ -7,14 +7,14 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func GetGameByXboxTitleID(ctx context.Context, db *pgxpool.Pool, xboxTitleID int) (*Game, error) {
+func GetGameByEpicCatalogItemID(ctx context.Context, db *pgxpool.Pool, catalogItemID string) (*Game, error) {
 	const query = `
 		SELECT id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 		FROM games
-		WHERE xbox_title_id = $1
+		WHERE epic_catalog_item_id = $1
 	`
 	var g Game
-	err := db.QueryRow(ctx, query, xboxTitleID).Scan(
+	err := db.QueryRow(ctx, query, catalogItemID).Scan(
 		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
@@ -24,12 +24,12 @@ func GetGameByXboxTitleID(ctx context.Context, db *pgxpool.Pool, xboxTitleID int
 	return &g, nil
 }
 
-// ResolveGameForXboxImport returns the canonical games row for an Xbox title matched to IGDB,
-// merging duplicate xbox-only and igdb-only rows when both exist.
-func ResolveGameForXboxImport(
+// ResolveGameForEpicImport returns the canonical games row for an Epic title matched to IGDB,
+// merging duplicate epic-only and igdb-only rows when both exist.
+func ResolveGameForEpicImport(
 	ctx context.Context,
 	db *pgxpool.Pool,
-	xboxTitleID int,
+	catalogItemID string,
 	igdbID int64,
 	name, coverURL string,
 	releaseYear int,
@@ -41,53 +41,53 @@ func ResolveGameForXboxImport(
 		return nil, err
 	}
 
-	xboxGame, err := GetGameByXboxTitleID(ctx, db, xboxTitleID)
+	epicGame, err := GetGameByEpicCatalogItemID(ctx, db, catalogItemID)
 	if err != nil && err != pgx.ErrNoRows {
 		return nil, err
 	}
 
-	if igdbGame != nil && xboxGame != nil && igdbGame.ID != xboxGame.ID {
-		if err := MergeGameInto(ctx, db, xboxGame.ID, igdbGame.ID); err != nil {
+	if igdbGame != nil && epicGame != nil && igdbGame.ID != epicGame.ID {
+		if err := MergeGameInto(ctx, db, epicGame.ID, igdbGame.ID); err != nil {
 			return nil, err
 		}
-		return FindOrCreateGameWithXboxTitleID(
-			ctx, db, igdbID, &xboxTitleID,
+		return FindOrCreateGameWithEpicCatalogItemID(
+			ctx, db, igdbID, &catalogItemID,
 			name, coverURL, releaseYear, platforms, categoryID,
 		)
 	}
 
 	if igdbGame != nil {
-		return FindOrCreateGameWithXboxTitleID(
-			ctx, db, igdbID, &xboxTitleID,
+		return FindOrCreateGameWithEpicCatalogItemID(
+			ctx, db, igdbID, &catalogItemID,
 			name, coverURL, releaseYear, platforms, categoryID,
 		)
 	}
 
-	if xboxGame != nil {
-		if xboxGame.IGDBId != nil {
-			if releaseYear > 0 && xboxGame.ReleaseYear <= 0 {
-				return LinkIGDBToXboxGame(
-					ctx, db, xboxTitleID, *xboxGame.IGDBId,
+	if epicGame != nil {
+		if epicGame.IGDBId != nil {
+			if releaseYear > 0 && epicGame.ReleaseYear <= 0 {
+				return LinkIGDBToEpicGame(
+					ctx, db, catalogItemID, *epicGame.IGDBId,
 					name, coverURL, releaseYear, platforms, categoryID,
 				)
 			}
-			return xboxGame, nil
+			return epicGame, nil
 		}
-		return LinkIGDBToXboxGame(
-			ctx, db, xboxTitleID, igdbID,
+		return LinkIGDBToEpicGame(
+			ctx, db, catalogItemID, igdbID,
 			name, coverURL, releaseYear, platforms, categoryID,
 		)
 	}
 
-	return FindOrCreateGameWithXboxTitleID(
-		ctx, db, igdbID, &xboxTitleID,
+	return FindOrCreateGameWithEpicCatalogItemID(
+		ctx, db, igdbID, &catalogItemID,
 		name, coverURL, releaseYear, platforms, categoryID,
 	)
 }
 
-// ApplyXboxImportMetadata updates canonical game display fields from Xbox data.
-// Xbox cover takes precedence; fallbackCover (e.g. IGDB) is used only when xboxCover is empty.
-func ApplyXboxImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64, name, xboxCover, fallbackCover string) error {
+// ApplyEpicImportMetadata updates canonical game display fields from Epic data.
+// Epic cover takes precedence; fallbackCover (e.g. IGDB) is used only when epicCover is empty.
+func ApplyEpicImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64, name, epicCover, fallbackCover string) error {
 	const query = `
 		UPDATE games
 		SET name = $2,
@@ -99,63 +99,49 @@ func ApplyXboxImportMetadata(ctx context.Context, db *pgxpool.Pool, gameID int64
 		    updated_at = NOW()
 		WHERE id = $1
 	`
-	_, err := db.Exec(ctx, query, gameID, name, xboxCover, fallbackCover)
+	_, err := db.Exec(ctx, query, gameID, name, epicCover, fallbackCover)
 	return err
 }
 
-// UpdateGameReleaseYearIfEmpty sets release_year when it is currently unknown.
-func UpdateGameReleaseYearIfEmpty(ctx context.Context, db *pgxpool.Pool, gameID int64, releaseYear int) error {
-	if releaseYear <= 0 {
-		return nil
-	}
-	const query = `
-		UPDATE games
-		SET release_year = $2, updated_at = NOW()
-		WHERE id = $1 AND release_year <= 0
-	`
-	_, err := db.Exec(ctx, query, gameID, releaseYear)
-	return err
-}
-
-func FindOrCreateGameByXboxTitleID(
+func FindOrCreateGameByEpicCatalogItemID(
 	ctx context.Context,
 	db *pgxpool.Pool,
-	xboxTitleID int,
+	catalogItemID string,
 	name, coverURL string,
 	categoryID int64,
 ) (*Game, error) {
 	const query = `
-		INSERT INTO games (xbox_title_id, igdb_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
-		VALUES ($1, NULL, $2, $3, $4, ARRAY['Xbox'], 0, NOW(), NOW())
-		ON CONFLICT (xbox_title_id) DO UPDATE SET
+		INSERT INTO games (epic_catalog_item_id, epic_namespace, igdb_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
+		VALUES ($1, 'egs', NULL, $2, $3, $4, ARRAY['Epic'], 0, NOW(), NOW())
+		ON CONFLICT (epic_catalog_item_id) DO UPDATE SET
 			name      = EXCLUDED.name,
 			cover_url = CASE WHEN EXCLUDED.cover_url <> '' THEN EXCLUDED.cover_url ELSE games.cover_url END,
 			updated_at = NOW()
 		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
-	err := db.QueryRow(ctx, query, xboxTitleID, categoryID, name, coverURL).Scan(
+	err := db.QueryRow(ctx, query, catalogItemID, categoryID, name, coverURL).Scan(
 		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
 	)
 	return &g, err
 }
 
-func FindOrCreateGameWithXboxTitleID(
+func FindOrCreateGameWithEpicCatalogItemID(
 	ctx context.Context,
 	db *pgxpool.Pool,
 	igdbID int64,
-	xboxTitleID *int,
+	catalogItemID *string,
 	name, coverURL string,
 	releaseYear int,
 	platforms []string,
 	categoryID int64,
 ) (*Game, error) {
 	const query = `
-		INSERT INTO games (igdb_id, xbox_title_id, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		INSERT INTO games (igdb_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at)
+		VALUES ($1, $2, 'egs', $3, $4, $5, $6, $7, NOW(), NOW())
 		ON CONFLICT (igdb_id) DO UPDATE SET
-			xbox_title_id = COALESCE(EXCLUDED.xbox_title_id, games.xbox_title_id),
+			epic_catalog_item_id = COALESCE(EXCLUDED.epic_catalog_item_id, games.epic_catalog_item_id),
 			name         = EXCLUDED.name,
 			cover_url    = EXCLUDED.cover_url,
 			platforms    = EXCLUDED.platforms,
@@ -165,7 +151,7 @@ func FindOrCreateGameWithXboxTitleID(
 	`
 	var g Game
 	err := db.QueryRow(ctx, query,
-		igdbID, xboxTitleID, categoryID, name, coverURL, platforms, releaseYear,
+		igdbID, catalogItemID, categoryID, name, coverURL, platforms, releaseYear,
 	).Scan(
 		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
@@ -173,10 +159,10 @@ func FindOrCreateGameWithXboxTitleID(
 	return &g, err
 }
 
-func LinkIGDBToXboxGame(
+func LinkIGDBToEpicGame(
 	ctx context.Context,
 	db *pgxpool.Pool,
-	xboxTitleID int,
+	catalogItemID string,
 	igdbID int64,
 	name, coverURL string,
 	releaseYear int,
@@ -192,12 +178,12 @@ func LinkIGDBToXboxGame(
 		    platforms = $6,
 		    release_year = $7,
 		    updated_at = NOW()
-		WHERE xbox_title_id = $1
+		WHERE epic_catalog_item_id = $1
 		RETURNING id, igdb_id, steam_app_id, xbox_title_id, epic_catalog_item_id, epic_namespace, category_id, name, cover_url, platforms, release_year, created_at, updated_at
 	`
 	var g Game
 	err := db.QueryRow(ctx, query,
-		xboxTitleID, igdbID, categoryID, name, coverURL, platforms, releaseYear,
+		catalogItemID, igdbID, categoryID, name, coverURL, platforms, releaseYear,
 	).Scan(
 		&g.ID, &g.IGDBId, &g.SteamAppID, &g.XboxTitleID, &g.EpicCatalogItemID, &g.EpicNamespace, &g.CategoryID, &g.Name, &g.CoverURL, &g.Platforms, &g.ReleaseYear,
 		&g.CreatedAt, &g.UpdatedAt,
@@ -205,10 +191,10 @@ func LinkIGDBToXboxGame(
 	return &g, err
 }
 
-// RemoveXboxGamesFromLibrary hard-deletes every Xbox-platform entry for the user
-// so a subsequent Xbox sync can re-import from scratch.
-func RemoveXboxGamesFromLibrary(ctx context.Context, db *pgxpool.Pool, userID int64) (int64, error) {
-	const query = `DELETE FROM user_games WHERE user_id = $1 AND platform = 'Xbox'`
+// RemoveEpicGamesFromLibrary hard-deletes every Epic-platform entry for the user
+// so a subsequent Epic sync can re-import from scratch.
+func RemoveEpicGamesFromLibrary(ctx context.Context, db *pgxpool.Pool, userID int64) (int64, error) {
+	const query = `DELETE FROM user_games WHERE user_id = $1 AND platform = 'Epic'`
 	ct, err := db.Exec(ctx, query, userID)
 	if err != nil {
 		return 0, err
@@ -216,13 +202,13 @@ func RemoveXboxGamesFromLibrary(ctx context.Context, db *pgxpool.Pool, userID in
 	return ct.RowsAffected(), nil
 }
 
-// ListImportedXboxTitleIDs returns Xbox title IDs already in the user's library on the given platform.
-func ListImportedXboxTitleIDs(ctx context.Context, db *pgxpool.Pool, userID int64, platform string) (map[int]struct{}, error) {
+// ListImportedEpicCatalogItemIDs returns Epic catalog item IDs already in the user's library on the given platform.
+func ListImportedEpicCatalogItemIDs(ctx context.Context, db *pgxpool.Pool, userID int64, platform string) (map[string]struct{}, error) {
 	const query = `
-		SELECT g.xbox_title_id
+		SELECT g.epic_catalog_item_id
 		FROM user_games ug
 		JOIN games g ON g.id = ug.game_id
-		WHERE ug.user_id = $1 AND ug.platform = $2 AND g.xbox_title_id IS NOT NULL
+		WHERE ug.user_id = $1 AND ug.platform = $2 AND g.epic_catalog_item_id IS NOT NULL
 	`
 	rows, err := db.Query(ctx, query, userID, platform)
 	if err != nil {
@@ -230,13 +216,13 @@ func ListImportedXboxTitleIDs(ctx context.Context, db *pgxpool.Pool, userID int6
 	}
 	defer rows.Close()
 
-	ids := make(map[int]struct{})
+	ids := make(map[string]struct{})
 	for rows.Next() {
-		var titleID int
-		if err := rows.Scan(&titleID); err != nil {
+		var catalogItemID string
+		if err := rows.Scan(&catalogItemID); err != nil {
 			return nil, err
 		}
-		ids[titleID] = struct{}{}
+		ids[catalogItemID] = struct{}{}
 	}
 	return ids, rows.Err()
 }
