@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jacksoncoelho/game-tracker/internal/cover"
 	"github.com/jacksoncoelho/game-tracker/internal/crypto"
+	"github.com/jacksoncoelho/game-tracker/internal/epic"
 	"github.com/jacksoncoelho/game-tracker/internal/igdb"
 	"github.com/jacksoncoelho/game-tracker/internal/metrics"
 	"github.com/jacksoncoelho/game-tracker/internal/models"
@@ -20,6 +21,7 @@ import (
 
 const steamPlatform = "Steam"
 const xboxPlatform = "Xbox"
+const epicPlatform = "Epic"
 
 func igdbConfigured() bool {
 	return os.Getenv("TWITCH_CLIENT_ID") != "" && os.Getenv("TWITCH_CLIENT_SECRET") != ""
@@ -31,13 +33,14 @@ type Service struct {
 	steam     *steam.Client
 	store     *steam.StoreClient
 	xbox      *xbox.Client
+	epic      *epic.Client
 	encrypter *crypto.Encrypter
 	covers    *cover.Resolver
 	playtime  playtime.Publisher
 }
 
 func NewService(db *pgxpool.Pool, igdbClient *igdb.Client, encrypter *crypto.Encrypter) *Service {
-	return NewServiceWithProviders(
+	svc := NewServiceWithProviders(
 		db,
 		igdbClient,
 		steam.NewClient(os.Getenv("STEAM_API_KEY")),
@@ -45,6 +48,8 @@ func NewService(db *pgxpool.Pool, igdbClient *igdb.Client, encrypter *crypto.Enc
 		xbox.NewClient(os.Getenv("XBOX_CLIENT_ID"), os.Getenv("XBOX_CLIENT_SECRET")),
 		encrypter,
 	)
+	svc.epic = epic.NewClient(os.Getenv("EPIC_CLIENT_ID"), os.Getenv("EPIC_CLIENT_SECRET"))
+	return svc
 }
 
 func NewServiceWithSteam(db *pgxpool.Pool, igdbClient *igdb.Client, steamClient *steam.Client, storeClient *steam.StoreClient) *Service {
@@ -71,6 +76,11 @@ func NewServiceWithProviders(
 		encrypter: encrypter,
 		covers:    cover.NewResolver(db, igdbClient),
 	}
+}
+
+// SetEpicClient wires the Epic Games OAuth/library client. Used by tests.
+func (s *Service) SetEpicClient(client *epic.Client) {
+	s.epic = client
 }
 
 // SetPlaytimePublisher wires the background playtime worker pool.
