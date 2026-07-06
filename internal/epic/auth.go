@@ -16,6 +16,7 @@ const (
 	defaultAuthorizeURL = "https://www.epicgames.com/id/authorize"
 	defaultTokenURL     = "https://api.epicgames.dev/epic/oauth/v2/token"
 	defaultUserInfoURL  = "https://api.epicgames.dev/epic/oauth/v2/userInfo"
+	defaultLibraryURL   = "https://library-service.live.use1a.on.epicgames.com"
 	defaultScope        = "basic_profile"
 )
 
@@ -25,6 +26,7 @@ type Client struct {
 	authorizeURL string
 	tokenURL     string
 	userInfoURL  string
+	libraryURL   string
 	httpClient   *http.Client
 }
 
@@ -54,6 +56,7 @@ func NewClientWithHTTP(clientID, clientSecret string, httpClient *http.Client) *
 		authorizeURL: defaultAuthorizeURL,
 		tokenURL:     defaultTokenURL,
 		userInfoURL:  defaultUserInfoURL,
+		libraryURL:   defaultLibraryURL,
 		httpClient:   httpClient,
 	}
 }
@@ -65,6 +68,13 @@ func (c *Client) SetEndpoints(tokenURL, userInfoURL string) {
 	}
 	if userInfoURL != "" {
 		c.userInfoURL = userInfoURL
+	}
+}
+
+// SetLibraryURL overrides the EGS library service base URL. Used by tests.
+func (c *Client) SetLibraryURL(libraryURL string) {
+	if libraryURL != "" {
+		c.libraryURL = libraryURL
 	}
 }
 
