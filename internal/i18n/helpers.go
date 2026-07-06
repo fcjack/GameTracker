@@ -11,21 +11,16 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 	switch job.Status {
 	case "completed":
 		if job.ImportedCount == 0 && job.SkippedCount == 0 {
-			if job.Provider == "xbox" {
+			switch job.Provider {
+			case "xbox":
 				return T(locale, "import.no_games_found_xbox")
-			}
-			return T(locale, "import.no_games_found")
-		}
-		key := "import.imported"
-		if job.ImportedCount != 1 {
-			key = "import.imported_plural"
-		}
-		if job.Provider == "xbox" {
-			key = "import.imported_xbox"
-			if job.ImportedCount != 1 {
-				key = "import.imported_xbox_plural"
+			case "epic":
+				return T(locale, "import.no_games_found_epic")
+			default:
+				return T(locale, "import.no_games_found")
 			}
 		}
+		key := importedSummaryKey(job.Provider, job.ImportedCount != 1)
 		msg := T(locale, key, job.ImportedCount)
 		if job.SkippedCount > 0 {
 			msg += T(locale, "import.skipped_suffix", job.SkippedCount)
@@ -38,6 +33,26 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 		return T(locale, "import.failed")
 	default:
 		return ""
+	}
+}
+
+func importedSummaryKey(provider string, plural bool) string {
+	switch provider {
+	case "xbox":
+		if plural {
+			return "import.imported_xbox_plural"
+		}
+		return "import.imported_xbox"
+	case "epic":
+		if plural {
+			return "import.imported_epic_plural"
+		}
+		return "import.imported_epic"
+	default:
+		if plural {
+			return "import.imported_plural"
+		}
+		return "import.imported"
 	}
 }
 
