@@ -24,6 +24,7 @@ func TestPrivacyPage(t *testing.T) {
 	r.GET("/privacy", PrivacyPage)
 
 	req := httptest.NewRequest(http.MethodGet, "/privacy", nil)
+	req.Header.Set("Accept-Language", "pt-BR,pt;q=0.9")
 	w := httptest.NewRecorder()
 	r.ServeHTTP(w, req)
 
@@ -34,7 +35,13 @@ func TestPrivacyPage(t *testing.T) {
 	if len(body) < 100 {
 		t.Fatalf("PrivacyPage() body too short (%d bytes): %q", len(body), body)
 	}
-	if !strings.Contains(body, "Privacy Policy") && !strings.Contains(body, "privacy.page_title") {
-		t.Fatalf("PrivacyPage() body missing privacy policy content (first 500 chars): %.500q", body)
+	if !strings.Contains(body, "Privacy Policy") {
+		t.Fatalf("PrivacyPage() body missing English title (first 500 chars): %.500q", body)
+	}
+	if strings.Contains(body, "Política de Privacidade") {
+		t.Fatalf("PrivacyPage() rendered Portuguese despite forced English locale")
+	}
+	if !strings.Contains(body, `lang="en"`) {
+		t.Fatalf("PrivacyPage() html lang attribute is not English")
 	}
 }
