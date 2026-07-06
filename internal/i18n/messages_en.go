@@ -67,6 +67,9 @@ var enMessages = map[string]string{
 	"error.xbox_not_configured":        "Xbox linking is not configured on this server",
 	"error.xbox_auth_failed":           "Xbox authentication failed",
 	"error.xbox_auth_denied":           "Xbox sign-in was cancelled or denied",
+	"error.epic_not_configured":        "Epic Games linking is not configured on this server",
+	"error.epic_auth_failed":           "Epic Games authentication failed",
+	"error.epic_auth_denied":           "Epic Games sign-in was cancelled or denied",
 	"error.search_failed":              "Search failed. Please try again.",
 	"error.update_locale_failed":       "Failed to update language",
 

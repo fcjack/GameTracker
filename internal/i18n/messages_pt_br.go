@@ -67,6 +67,9 @@ var ptBRMessages = map[string]string{
 	"error.xbox_not_configured":        "A vinculação Xbox não está configurada neste servidor",
 	"error.xbox_auth_failed":           "Falha na autenticação Xbox",
 	"error.xbox_auth_denied":           "O login Xbox foi cancelado ou negado",
+	"error.epic_not_configured":        "A vinculação Epic Games não está configurada neste servidor",
+	"error.epic_auth_failed":           "Falha na autenticação Epic Games",
+	"error.epic_auth_denied":           "O login Epic Games foi cancelado ou negado",
 	"error.search_failed":              "Falha na busca. Tente novamente.",
 	"error.update_locale_failed":       "Falha ao atualizar o idioma",
 
