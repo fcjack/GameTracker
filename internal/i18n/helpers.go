@@ -12,9 +12,9 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 	case "completed":
 		if job.ImportedCount == 0 && job.SkippedCount == 0 {
 			switch job.Provider {
-		case "xbox":
-			return T(locale, "import.no_games_found_xbox")
-		default:
+			case "xbox":
+				return T(locale, "import.no_games_found_xbox")
+			default:
 				return T(locale, "import.no_games_found")
 			}
 		}
