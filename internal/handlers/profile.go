@@ -40,15 +40,12 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 
 	var steamAccount *models.LinkedAccount
 	var xboxAccount *models.LinkedAccount
-	var epicAccount *models.LinkedAccount
 	for _, acc := range accounts {
 		switch acc.Provider {
 		case "steam":
 			steamAccount = acc
 		case "xbox":
 			xboxAccount = acc
-		case "epic":
-			epicAccount = acc
 		}
 	}
 
@@ -68,23 +65,12 @@ func (h *ProfileHandler) ProfilePage(c *gin.Context) {
 		}
 	}
 
-	var epicImportJob *models.ImportJob
-	if epicAccount != nil {
-		job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "epic")
-		if err == nil {
-			epicImportJob = job
-		}
-	}
-
 	base["steamAccount"] = steamAccount
 	base["xboxAccount"] = xboxAccount
-	base["epicAccount"] = epicAccount
 	base["steamImportJob"] = steamImportJob
 	base["xboxImportJob"] = xboxImportJob
-	base["epicImportJob"] = epicImportJob
 	base["importJobSummary"] = i18n.ImportJobSummary(steamImportJob, locale)
 	base["xboxImportJobSummary"] = i18n.ImportJobSummary(xboxImportJob, locale)
-	base["epicImportJobSummary"] = i18n.ImportJobSummary(epicImportJob, locale)
 
 	c.HTML(http.StatusOK, "profile/index", ViewData(c, base))
 }
@@ -112,29 +98,10 @@ func (h *ProfileHandler) profileTemplateBase(c *gin.Context, userID int64, usern
 		}
 	}
 
-	epicCleared := 0
-	if cleared := c.Query("epic_cleared"); cleared != "" {
-		if n, err := fmt.Sscanf(cleared, "%d", &epicCleared); err != nil || n != 1 {
-			epicCleared = 0
-		}
-	}
-
-	return gin.H{
-		"username":        username,
-		"activeNav":       "profile",
-		"hasAvatar":       hasAvatar,
-		"gravatarURL":     gravatarURL,
-		"locale":          locale,
-		"error":           c.Query("error"),
-		"passwordError":   c.Query("password_error"),
-		"passwordSuccess": c.Query("password_success") == "1",
-		"localeSuccess":   c.Query("locale_success") == "1",
 		"steamCleared":    steamCleared,
 		"xboxCleared":     xboxCleared,
-		"epicCleared":     epicCleared,
 		"steamUnlinked":   c.Query("steam_unlinked") == "1",
 		"xboxUnlinked":    c.Query("xbox_unlinked") == "1",
-		"epicUnlinked":    c.Query("epic_unlinked") == "1",
 	}
 }
 

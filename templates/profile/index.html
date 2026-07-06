@@ -53,18 +53,6 @@
         </div>
         {{end}}
 
-        {{if gt .epicCleared 0}}
-        <div class="mb-6 px-4 py-3 bg-green-950 border border-green-800 rounded-lg text-green-300 text-sm">
-            {{if eq .epicCleared 1}}{{call .T "profile.epic_library_cleared" .epicCleared}}{{else}}{{call .T "profile.epic_library_cleared_plural" .epicCleared}}{{end}}
-        </div>
-        {{end}}
-
-        {{if .epicUnlinked}}
-        <div class="mb-6 px-4 py-3 bg-green-950 border border-green-800 rounded-lg text-green-300 text-sm">
-            {{call .T "profile.epic_unlinked"}}
-        </div>
-        {{end}}
-
         <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
             <!-- Avatar Card -->
             <div class="bg-gray-900 border border-gray-800 rounded-xl p-8">
@@ -286,58 +274,6 @@
                     {{if .xboxAccount}}
                     <p class="text-xs text-gray-500 mt-3">{{call .T "profile.clear_xbox_library_hint"}}</p>
                     {{template "profile/xbox_import_status" .}}
-                    {{end}}
-                </div>
-
-                <!-- Epic Games Account -->
-                <div class="p-4 bg-gray-800 rounded-lg border border-gray-700">
-                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div class="flex items-center gap-3">
-                            <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-white text-black text-xs font-bold">E</span>
-                            <div class="min-w-0">
-                                <p class="font-medium">{{call .T "profile.epic"}}</p>
-                                {{if .epicAccount}}
-                                <p class="text-sm text-gray-400 break-all">{{.epicAccount.DisplayName}} ({{.epicAccount.ExternalID}})</p>
-                                {{else}}
-                                <p class="text-sm text-gray-400">{{call .T "profile.not_linked"}}</p>
-                                {{end}}
-                            </div>
-                        </div>
-                        {{if .epicAccount}}
-                        <div class="flex flex-wrap items-center gap-2 sm:justify-end">
-                            {{if not (and .epicImportJob .epicImportJob.IsActive)}}
-                            <form method="POST" action="/profile/epic/import">
-                                <button type="submit"
-                                        class="text-sm bg-gray-700 hover:bg-gray-600 text-gray-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
-                                    {{call .T "profile.sync_library"}}
-                                </button>
-                            </form>
-                            <form method="POST" action="/profile/epic/clear-library"
-                                  data-confirm="{{call .T "profile.clear_epic_library_confirm"}}">
-                                <button type="submit"
-                                        class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
-                                    {{call .T "profile.clear_epic_library"}}
-                                </button>
-                            </form>
-                            <form method="POST" action="/profile/epic/unlink"
-                                  data-confirm="{{call .T "profile.unlink_epic_confirm"}}">
-                                <button type="submit"
-                                        class="text-sm bg-gray-700 hover:bg-red-900/60 text-gray-300 hover:text-red-200 font-medium py-1.5 px-3 rounded-lg transition-colors">
-                                    {{call .T "profile.unlink_account"}}
-                                </button>
-                            </form>
-                            {{end}}
-                            <span class="text-xs bg-green-900 text-green-300 px-3 py-1 rounded-full">{{call .T "profile.linked"}}</span>
-                        </div>
-                        {{else}}
-                        <a href="/auth/epic" hx-boost="false" class="bg-gray-200 hover:bg-white text-black font-medium py-2 px-4 rounded-lg transition-colors text-center">
-                            {{call .T "profile.link_account"}}
-                        </a>
-                        {{end}}
-                    </div>
-                    {{if .epicAccount}}
-                    <p class="text-xs text-gray-500 mt-3">{{call .T "profile.clear_epic_library_hint"}}</p>
-                    {{template "profile/epic_import_status" .}}
                     {{end}}
                 </div>
             </div>

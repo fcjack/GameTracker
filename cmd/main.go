@@ -157,7 +157,6 @@ func main() {
 
 	steam := handlers.NewSteamHandler(db, importService)
 	xboxHandler := handlers.NewXboxHandler(db, encrypter, importService)
-	epicHandler := handlers.NewEpicHandler(db, encrypter, importService)
 	importHandler := handlers.NewImportHandler(db, importService)
 	library := handlers.NewLibraryHandler(db, igdbClient)
 
@@ -183,8 +182,6 @@ func main() {
 		protected.GET("/auth/steam/callback", steam.Callback)
 		protected.GET("/auth/xbox", xboxHandler.Initiate)
 		protected.GET("/auth/xbox/callback", xboxHandler.Callback)
-		protected.GET("/auth/epic", epicHandler.Initiate)
-		protected.GET("/auth/epic/callback", epicHandler.Callback)
 		protected.POST("/profile/steam/import", importHandler.StartSteamImport)
 		protected.POST("/profile/steam/clear-library", importHandler.ClearSteamLibrary)
 		protected.POST("/profile/steam/unlink", importHandler.UnlinkSteamAccount)
@@ -195,11 +192,6 @@ func main() {
 		protected.POST("/profile/xbox/unlink", importHandler.UnlinkXboxAccount)
 		protected.GET("/profile/xbox/import-status", importHandler.XboxImportStatus)
 		protected.POST("/profile/xbox/import-cancel", importHandler.CancelXboxImport)
-		protected.POST("/profile/epic/import", importHandler.StartEpicImport)
-		protected.POST("/profile/epic/clear-library", importHandler.ClearEpicLibrary)
-		protected.POST("/profile/epic/unlink", importHandler.UnlinkEpicAccount)
-		protected.GET("/profile/epic/import-status", importHandler.EpicImportStatus)
-		protected.POST("/profile/epic/import-cancel", importHandler.CancelEpicImport)
 		protected.GET("/library", library.LibraryPage)
 		protected.GET("/library/games", library.LibraryGrid)
 		protected.GET("/library/games/:game_id", library.GameDetail)

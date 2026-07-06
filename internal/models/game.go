@@ -307,12 +307,6 @@ func LinkGameFromIGDB(
 			name, coverURL, releaseYear, platforms, categoryID,
 		)
 	}
-	if game.EpicCatalogItemID != nil {
-		return ResolveGameForEpicImport(
-			ctx, db, *game.EpicCatalogItemID, igdbID,
-			name, coverURL, releaseYear, platforms, categoryID,
-		)
-	}
 	if game.SteamAppID != nil {
 		return ResolveGameForSteamImport(
 			ctx, db, *game.SteamAppID, igdbID,

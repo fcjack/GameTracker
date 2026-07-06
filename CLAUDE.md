@@ -164,3 +164,4 @@ Copy `.env.example` to `.env`. Required variables:
 | Xbox Live API (OAuth2) | Link Xbox account, refresh tokens, import title history | Implemented |
 | Xbox User Stats API | `MinutesPlayed` per title (async playtime workers) | Implemented |
 | IGDB API | Dashboard search, game detail metadata, import enrichment, manual linking | Implemented |
+| Epic Games | Library import / account linking | **Not supported** — see [docs/EPIC_GAMES.md](docs/EPIC_GAMES.md) |

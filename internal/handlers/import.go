@@ -107,10 +107,6 @@ func (h *ImportHandler) UnlinkXboxAccount(c *gin.Context) {
 	h.unlinkAccount(c, "xbox")
 }
 
-func (h *ImportHandler) UnlinkEpicAccount(c *gin.Context) {
-	h.unlinkAccount(c, "epic")
-}
-
 func (h *ImportHandler) unlinkAccount(c *gin.Context, provider string) {
 	session := sessions.Default(c)
 	userID := session.Get("user_id").(int64)
@@ -150,11 +146,6 @@ func (h *ImportHandler) unlinkAccount(c *gin.Context, provider string) {
 			fail("error.unlink_xbox_failed")
 			return
 		}
-	case "epic":
-		if _, err = models.RemoveEpicGamesFromLibrary(c.Request.Context(), h.db, userID); err != nil {
-			fail("error.unlink_epic_failed")
-			return
-		}
 	}
 
 	if err := models.DeleteLinkedAccount(c.Request.Context(), h.db, userID, provider); err != nil {
@@ -169,8 +160,6 @@ func notLinkedErrorKey(provider string) string {
 	switch provider {
 	case "xbox":
 		return "error.xbox_not_linked"
-	case "epic":
-		return "error.epic_not_linked"
 	default:
 		return "error.steam_not_linked"
 	}
@@ -180,8 +169,6 @@ func unlinkFailedErrorKey(provider string) string {
 	switch provider {
 	case "xbox":
 		return "error.unlink_xbox_failed"
-	case "epic":
-		return "error.unlink_epic_failed"
 	default:
 		return "error.unlink_steam_failed"
 	}
@@ -304,107 +291,6 @@ func (h *ImportHandler) CancelXboxImport(c *gin.Context) {
 	}
 
 	_, err = h.service.CancelImport(c.Request.Context(), userID, "xbox", i18n.T(locale, "import.cancelled"))
-	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
-		return
-	}
-
-	c.Redirect(http.StatusSeeOther, "/profile")
-}
-
-func (h *ImportHandler) EpicImportStatus(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
-	locale := LocaleFromContext(c)
-
-	job, err := models.GetLatestImportJob(c.Request.Context(), h.db, userID, "epic")
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.HTML(http.StatusOK, "profile/epic_import_status", ViewData(c, gin.H{}))
-			return
-		}
-		c.AbortWithStatus(http.StatusInternalServerError)
-		return
-	}
-
-	c.HTML(http.StatusOK, "profile/epic_import_status", ViewData(c, gin.H{
-		"epicImportJob":        job,
-		"epicImportJobSummary": i18n.ImportJobSummary(job, locale),
-	}))
-}
-
-func (h *ImportHandler) StartEpicImport(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
-
-	_, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "epic")
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.Redirect(http.StatusSeeOther, "/profile?error=error.epic_not_linked")
-			return
-		}
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
-		return
-	}
-
-	_, err = h.service.StartEpicImport(c.Request.Context(), userID)
-	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.start_import_failed")
-		return
-	}
-
-	c.Redirect(http.StatusSeeOther, "/profile")
-}
-
-func (h *ImportHandler) ClearEpicLibrary(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
-
-	active, err := models.HasActiveImportJob(c.Request.Context(), h.db, userID, "epic")
-	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_epic_library_failed")
-		return
-	}
-	if active {
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.import_in_progress")
-		return
-	}
-
-	_, err = models.GetLinkedAccount(c.Request.Context(), h.db, userID, "epic")
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.Redirect(http.StatusSeeOther, "/profile?error=error.epic_not_linked")
-			return
-		}
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_epic_library_failed")
-		return
-	}
-
-	removed, err := models.RemoveEpicGamesFromLibrary(c.Request.Context(), h.db, userID)
-	if err != nil {
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.clear_epic_library_failed")
-		return
-	}
-
-	c.Redirect(http.StatusSeeOther, fmt.Sprintf("/profile?epic_cleared=%d", removed))
-}
-
-func (h *ImportHandler) CancelEpicImport(c *gin.Context) {
-	session := sessions.Default(c)
-	userID := session.Get("user_id").(int64)
-	locale := LocaleFromContext(c)
-
-	_, err := models.GetLinkedAccount(c.Request.Context(), h.db, userID, "epic")
-	if err != nil {
-		if err == pgx.ErrNoRows {
-			c.Redirect(http.StatusSeeOther, "/profile?error=error.epic_not_linked")
-			return
-		}
-		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
-		return
-	}
-
-	_, err = h.service.CancelImport(c.Request.Context(), userID, "epic", i18n.T(locale, "import.cancelled"))
 	if err != nil {
 		c.Redirect(http.StatusSeeOther, "/profile?error=error.cancel_import_failed")
 		return

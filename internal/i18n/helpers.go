@@ -12,11 +12,9 @@ func ImportJobSummary(job *models.ImportJob, locale string) string {
 	case "completed":
 		if job.ImportedCount == 0 && job.SkippedCount == 0 {
 			switch job.Provider {
-			case "xbox":
-				return T(locale, "import.no_games_found_xbox")
-			case "epic":
-				return T(locale, "import.no_games_found_epic")
-			default:
+		case "xbox":
+			return T(locale, "import.no_games_found_xbox")
+		default:
 				return T(locale, "import.no_games_found")
 			}
 		}
@@ -43,11 +41,6 @@ func importedSummaryKey(provider string, plural bool) string {
 			return "import.imported_xbox_plural"
 		}
 		return "import.imported_xbox"
-	case "epic":
-		if plural {
-			return "import.imported_epic_plural"
-		}
-		return "import.imported_epic"
 	default:
 		if plural {
 			return "import.imported_plural"
