@@ -506,6 +506,233 @@ func TestCancelXboxImportStopsActiveJob(t *testing.T) {
 	}
 }
 
+func TestStartEpicImportNotLinked(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/epic/import", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if !strings.Contains(w.Header().Get("Location"), "error=error.epic_not_linked") {
+		t.Errorf("redirect = %q, want epic not linked error", w.Header().Get("Location"))
+	}
+}
+
+func TestStartEpicImportSuccess(t *testing.T) {
+	t.Setenv("TWITCH_CLIENT_ID", "id")
+	t.Setenv("TWITCH_CLIENT_SECRET", "secret")
+
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "epic", "9626f441055349ce8cb7d7d5a483eaa2", "EpicGamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/epic/import", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if loc := w.Header().Get("Location"); loc != "/profile" {
+		t.Errorf("redirect = %q, want /profile", loc)
+	}
+}
+
+func TestEpicImportStatusNoJob(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	router := newImportTestRouter(h)
+	w := serveImportOnRouter(t, router, user.ID, http.MethodGet, "/profile/epic/import-status", nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+func TestClearEpicLibrarySuccess(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "epic", "9626f441055349ce8cb7d7d5a483eaa2", "EpicGamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	game, err := models.FindOrCreateGameByEpicCatalogItemID(ctx, db, "11111111-1111-1111-1111-111111111111", "Hades", "", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByEpicCatalogItemID() error = %v", err)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Epic", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/epic/clear-library", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if !strings.Contains(w.Header().Get("Location"), "epic_cleared=1") {
+		t.Errorf("redirect = %q, want epic_cleared=1", w.Header().Get("Location"))
+	}
+}
+
+func TestUnlinkEpicAccountSuccess(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "epic", "9626f441055349ce8cb7d7d5a483eaa2", "EpicGamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+
+	cat, err := models.GetCategoryByIGDBValue(ctx, db, 0)
+	if err != nil {
+		t.Fatalf("GetCategoryByIGDBValue() error = %v", err)
+	}
+	game, err := models.FindOrCreateGameByEpicCatalogItemID(ctx, db, "11111111-1111-1111-1111-111111111111", "Hades", "", cat.ID)
+	if err != nil {
+		t.Fatalf("FindOrCreateGameByEpicCatalogItemID() error = %v", err)
+	}
+	if err := models.AddToLibrary(ctx, db, user.ID, game.ID, "Epic", nil); err != nil {
+		t.Fatalf("AddToLibrary() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/epic/unlink", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+	if !strings.Contains(w.Header().Get("Location"), "epic_unlinked=1") {
+		t.Errorf("redirect = %q, want epic_unlinked=1", w.Header().Get("Location"))
+	}
+}
+
+func TestEpicImportStatusWithJob(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	job, err := models.CreateImportJob(ctx, db, user.ID, "epic")
+	if err != nil {
+		t.Fatalf("CreateImportJob() error = %v", err)
+	}
+	if err := models.SetImportJobTotal(ctx, db, job.ID, 10); err != nil {
+		t.Fatalf("SetImportJobTotal() error = %v", err)
+	}
+	if err := models.UpdateImportJobProgress(ctx, db, job.ID, 4, 2, 2); err != nil {
+		t.Fatalf("UpdateImportJobProgress() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	router := newImportTestRouter(h)
+	w := serveImportOnRouter(t, router, user.ID, http.MethodGet, "/profile/epic/import-status", nil)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if !strings.Contains(w.Body.String(), "Importing Epic library") {
+		t.Errorf("body = %q, want import progress markup", w.Body.String())
+	}
+}
+
+func TestCancelEpicImportStopsActiveJob(t *testing.T) {
+	t.Parallel()
+	db := testDB(t)
+	defer db.Close()
+
+	ctx := t.Context()
+	user, err := models.CreateUser(ctx, db, uniqueUsername(t), "password123")
+	if err != nil {
+		t.Fatalf("CreateUser() error = %v", err)
+	}
+	if _, err := models.UpsertLinkedAccount(ctx, db, user.ID, "epic", "9626f441055349ce8cb7d7d5a483eaa2", "EpicGamer", "", "", nil); err != nil {
+		t.Fatalf("UpsertLinkedAccount() error = %v", err)
+	}
+	job, err := models.CreateImportJob(ctx, db, user.ID, "epic")
+	if err != nil {
+		t.Fatalf("CreateImportJob() error = %v", err)
+	}
+	if err := models.SetImportJobTotal(ctx, db, job.ID, 10); err != nil {
+		t.Fatalf("SetImportJobTotal() error = %v", err)
+	}
+
+	svc := importjob.NewService(db, igdb.NewClient("id", "secret", "http://localhost"), nil)
+	h := NewImportHandler(db, svc)
+
+	w := serveImportRequest(t, h, user.ID, http.MethodPost, "/profile/epic/import-cancel", nil)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSeeOther)
+	}
+
+	got, err := models.GetImportJob(ctx, db, job.ID)
+	if err != nil {
+		t.Fatalf("GetImportJob() error = %v", err)
+	}
+	if got.Status != "failed" {
+		t.Errorf("status = %q, want failed", got.Status)
+	}
+}
+
 func serveImportRequest(t *testing.T, h *ImportHandler, userID int64, method, path string, body *strings.Reader) *httptest.ResponseRecorder {
 	t.Helper()
 	router := newImportTestRouter(h)
@@ -527,6 +754,11 @@ func newImportTestRouter(h *ImportHandler) *gin.Engine {
 	router.POST("/profile/xbox/unlink", h.UnlinkXboxAccount)
 	router.POST("/profile/xbox/import-cancel", h.CancelXboxImport)
 	router.GET("/profile/xbox/import-status", h.XboxImportStatus)
+	router.POST("/profile/epic/import", h.StartEpicImport)
+	router.POST("/profile/epic/clear-library", h.ClearEpicLibrary)
+	router.POST("/profile/epic/unlink", h.UnlinkEpicAccount)
+	router.POST("/profile/epic/import-cancel", h.CancelEpicImport)
+	router.GET("/profile/epic/import-status", h.EpicImportStatus)
 	return router
 }
 
