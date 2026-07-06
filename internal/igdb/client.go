@@ -15,6 +15,7 @@ import (
 const (
 	externalGameCategorySteam           = 1
 	externalGameCategoryMicrosoft       = 11
+	externalGameCategoryEpicGameStore   = 26 // IGDB External Game category: epic_game_store (api-docs.igdb.com/#external-game)
 	externalGameCategoryXboxMarketplace = 31
 	gameCategoryMainGame                = 0
 	// IGDB allows 4 requests/second; stay under with a 300ms minimum gap.
@@ -313,6 +314,77 @@ func (c *Client) LookupIGDBIDByXboxTitleID(titleID int, xboxName string) (int64,
 			continue
 		}
 		if gamename.Match(xboxName, result.Name) {
+			return result.ID, nil
+		}
+	}
+	return 0, nil
+}
+
+// LookupIGDBIDByEpicCatalogItemID resolves an Epic catalog item ID to an IGDB game.
+// Epic name disambiguates when the same uid exists across multiple storefronts.
+// When Twitch credentials are not configured, callers should skip IGDB lookup and
+// import Epic metadata only.
+func (c *Client) LookupIGDBIDByEpicCatalogItemID(catalogItemID string, epicName string) (int64, error) {
+	catalogItemID = strings.TrimSpace(catalogItemID)
+	if catalogItemID == "" {
+		return 0, nil
+	}
+
+	escapedID := strings.ReplaceAll(catalogItemID, `"`, `\"`)
+
+	if epicName != "" {
+		body := fmt.Sprintf(
+			`fields name; where external_games.uid = "%s" & name = "%s"; limit 1;`,
+			escapedID,
+			strings.ReplaceAll(epicName, `"`, `\"`),
+		)
+		var results []SearchResult
+		if err := c.post("/games", body, &results); err != nil {
+			return 0, err
+		}
+		if len(results) > 0 {
+			return results[0].ID, nil
+		}
+	}
+
+	body := fmt.Sprintf(`fields game,category,name; where uid = "%s"; limit 10;`, escapedID)
+	var results []externalGameResult
+	if err := c.post("/external_games", body, &results); err != nil {
+		return 0, err
+	}
+
+	var fallback int64
+	for _, r := range results {
+		if r.Game == 0 {
+			continue
+		}
+		if epicName != "" && r.Name != "" && !gamename.Match(epicName, r.Name) {
+			continue
+		}
+		switch r.Category {
+		case 0, externalGameCategoryEpicGameStore:
+			if fallback == 0 {
+				fallback = r.Game
+			}
+		}
+	}
+	if fallback != 0 {
+		return fallback, nil
+	}
+
+	if epicName == "" {
+		return 0, nil
+	}
+
+	searchResults, err := c.Search(epicName, 5)
+	if err != nil {
+		return 0, err
+	}
+	for _, result := range searchResults {
+		if !IsMainGame(result.Category) {
+			continue
+		}
+		if gamename.Match(epicName, result.Name) {
 			return result.ID, nil
 		}
 	}

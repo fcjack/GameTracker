@@ -425,6 +425,127 @@ func TestLookupIGDBIDByXboxTitleIDWithoutCredentialsReturnsZero(t *testing.T) {
 	}
 }
 
+func TestLookupIGDBIDByEpicCatalogItemID(t *testing.T) {
+	t.Parallel()
+
+	const catalogItemID = "11111111-1111-1111-1111-111111111111"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			if !strings.Contains(string(body), `external_games.uid = "`+catalogItemID+`"`) {
+				t.Errorf("games body = %q, expected epic catalog item id", string(body))
+			}
+			json.NewEncoder(w).Encode([]SearchResult{{ID: 119133, Name: "Hades"}})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{{Game: 99999}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.tokenURL = server.URL + "/token"
+	client.httpClient = server.Client()
+
+	igdbID, err := client.LookupIGDBIDByEpicCatalogItemID(catalogItemID, "Hades")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByEpicCatalogItemID() error = %v", err)
+	}
+	if igdbID != 119133 {
+		t.Errorf("igdb id = %d, want 119133", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByEpicCatalogItemIDExternalGamesFallback(t *testing.T) {
+	t.Parallel()
+
+	const catalogItemID = "22222222-2222-2222-2222-222222222222"
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			json.NewEncoder(w).Encode([]SearchResult{})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{
+				{Game: 999, Category: externalGameCategorySteam, Name: "Wrong Store"},
+				{Game: 112876, Category: externalGameCategoryEpicGameStore, Name: "Control"},
+			})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.SetHTTPClient(server.Client())
+
+	igdbID, err := client.LookupIGDBIDByEpicCatalogItemID(catalogItemID, "Control")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByEpicCatalogItemID() error = %v", err)
+	}
+	if igdbID != 112876 {
+		t.Errorf("igdb id = %d, want 112876", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByEpicCatalogItemIDNameSearchFallback(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			json.NewEncoder(w).Encode(tokenResponse{AccessToken: "tok", ExpiresIn: 3600})
+		case "/games":
+			body, _ := io.ReadAll(r.Body)
+			if strings.Contains(string(body), `search "Celeste"`) {
+				json.NewEncoder(w).Encode([]SearchResult{
+					{ID: 82502, Name: "Celeste", Category: 0},
+				})
+				return
+			}
+			json.NewEncoder(w).Encode([]SearchResult{})
+		case "/external_games":
+			json.NewEncoder(w).Encode([]externalGameResult{})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	client := NewClient("id", "secret", server.URL)
+	client.SetTokenURL(server.URL + "/token")
+	client.httpClient = server.Client()
+
+	igdbID, err := client.LookupIGDBIDByEpicCatalogItemID("33333333-3333-3333-3333-333333333333", "Celeste")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByEpicCatalogItemID() error = %v", err)
+	}
+	if igdbID != 82502 {
+		t.Errorf("igdb id = %d, want 82502", igdbID)
+	}
+}
+
+func TestLookupIGDBIDByEpicCatalogItemIDEmptyReturnsZero(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient("id", "secret", "http://example.invalid")
+	igdbID, err := client.LookupIGDBIDByEpicCatalogItemID("", "Hades")
+	if err != nil {
+		t.Fatalf("LookupIGDBIDByEpicCatalogItemID() error = %v, want nil", err)
+	}
+	if igdbID != 0 {
+		t.Errorf("igdb id = %d, want 0", igdbID)
+	}
+}
+
 func TestGetGameByID(t *testing.T) {
 	t.Parallel()
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
