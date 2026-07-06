@@ -98,6 +98,16 @@ func (h *ProfileHandler) profileTemplateBase(c *gin.Context, userID int64, usern
 		}
 	}
 
+	return gin.H{
+		"username":        username,
+		"activeNav":       "profile",
+		"hasAvatar":       hasAvatar,
+		"gravatarURL":     gravatarURL,
+		"locale":          locale,
+		"error":           c.Query("error"),
+		"passwordError":   c.Query("password_error"),
+		"passwordSuccess": c.Query("password_success") == "1",
+		"localeSuccess":   c.Query("locale_success") == "1",
 		"steamCleared":    steamCleared,
 		"xboxCleared":     xboxCleared,
 		"steamUnlinked":   c.Query("steam_unlinked") == "1",
