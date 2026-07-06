@@ -167,6 +167,7 @@ func main() {
 	r.GET("/register", auth.RegisterPage)
 	r.POST("/register", auth.Register)
 	r.POST("/logout", auth.Logout)
+	r.GET("/privacy", handlers.PrivacyPage)
 
 	protected := r.Group("/")
 	protected.Use(handlers.AuthRequired())

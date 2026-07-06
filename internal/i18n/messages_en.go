@@ -241,4 +241,38 @@ var enMessages = map[string]string{
 	"import.skipped_suffix":              " (%d skipped)",
 	"import.failed":                      "Import failed.",
 	"import.cancelled":                   "Import cancelled.",
+
+	"privacy.page_title":      "Privacy Policy",
+	"privacy.last_updated":    "Last updated: July 6, 2026",
+	"privacy.back_to_sign_in": "Back to sign in",
+
+	"privacy.overview.title": "Overview",
+	"privacy.overview.body":  "Helios Gaming tracker is a self-hosted personal game library application. It helps you import games from linked platforms, track playtime and status, and browse game metadata. This policy describes what information the application stores and how it is used on your instance.",
+
+	"privacy.data_collected.title": "Information stored in your account",
+	"privacy.data_collected.body":  "When you register, the application stores a username and a bcrypt-hashed password. Your profile may include a locale preference and an optional avatar image. Your library stores game titles, platforms, status, playtime, completion dates, and related metadata imported or added by you.",
+
+	"privacy.linked_accounts.title": "Linked platform accounts",
+	"privacy.linked_accounts.body":  "If you link Steam, Xbox, or Epic Games, the application stores your external account identifier, display name, and OAuth access and refresh tokens. Tokens are encrypted at rest before being saved to the database. Linking is optional and used only to import or refresh your game library and playtime on this instance.",
+
+	"privacy.third_party.title": "Third-party services",
+	"privacy.third_party.body":  "When you link a platform or search for games, the application contacts the relevant provider APIs (Steam, Microsoft/Xbox Live, Epic Games, and optionally IGDB via Twitch credentials) to fetch library, playtime, or metadata. Those services receive the data required for authentication and the requests you trigger. Their use is governed by each provider's own privacy policy.",
+
+	"privacy.how_we_use.title": "How your information is used",
+	"privacy.how_we_use.body":  "Data is used solely to operate your personal library on this instance. Helios Gaming tracker has no social features, advertising, analytics, or data selling. Information is not shared with other users or with the application authors unless you choose to share your instance yourself.",
+
+	"privacy.cookies.title": "Cookies and sessions",
+	"privacy.cookies.body":  "The application uses a signed session cookie to keep you signed in. No third-party tracking cookies are set by the application itself.",
+
+	"privacy.retention.title": "Retention and deletion",
+	"privacy.retention.body":  "Your data remains on this instance until you or the instance operator deletes it. You can remove imported games, clear platform libraries, unlink external accounts, or delete your account according to the features available on your deployment.",
+
+	"privacy.self_hosted.title": "Self-hosted deployments",
+	"privacy.self_hosted.body":  "Each installation runs on infrastructure controlled by its operator. The operator is responsible for server security, backups, and compliance with applicable laws. This policy describes the application's behavior; your operator may publish additional contact or hosting details for your instance.",
+
+	"privacy.changes.title": "Changes to this policy",
+	"privacy.changes.body":  "This policy may be updated when the application changes. The last updated date at the top of this page reflects the current version.",
+
+	"privacy.contact.title": "Contact",
+	"privacy.contact.body":  "For questions about how your data is handled on this instance, contact the person or organization that operates your Helios Gaming tracker deployment.",
 }

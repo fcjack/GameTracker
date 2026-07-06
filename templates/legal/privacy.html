@@ -1,0 +1,81 @@
+{{define "legal/privacy"}}
+<!DOCTYPE html>
+<html lang="{{.lang}}" class="h-full bg-gray-950">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{call .T "privacy.page_title"}} — {{call .T "app.name"}}</title>
+    {{template "layout/pwa_head" .}}
+    <link rel="stylesheet" href="/static/css/app.css?v={{.version}}">
+</head>
+<body class="min-h-full bg-gray-950 text-gray-300">
+    <div class="max-w-3xl mx-auto px-4 py-10 sm:py-14">
+        <div class="text-center mb-10">
+            <img src="/static/icons/icon-192.png" alt="{{call .T "app.name"}}"
+                 class="w-14 h-14 mx-auto rounded-2xl">
+            <h1 class="mt-4 text-3xl font-bold text-white">{{call .T "privacy.page_title"}}</h1>
+            <p class="mt-2 text-sm text-gray-500">{{call .T "privacy.last_updated"}}</p>
+        </div>
+
+        <article class="space-y-8 bg-gray-900 rounded-2xl p-6 sm:p-8 border border-gray-800 shadow-2xl">
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.overview.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.overview.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.data_collected.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.data_collected.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.linked_accounts.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.linked_accounts.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.third_party.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.third_party.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.how_we_use.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.how_we_use.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.cookies.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.cookies.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.retention.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.retention.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.self_hosted.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.self_hosted.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.changes.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.changes.body"}}</p>
+            </section>
+
+            <section>
+                <h2 class="text-lg font-semibold text-white mb-2">{{call .T "privacy.contact.title"}}</h2>
+                <p class="text-sm leading-relaxed">{{call .T "privacy.contact.body"}}</p>
+            </section>
+        </article>
+
+        <p class="mt-8 text-center text-sm text-gray-500">
+            <a href="/login" class="text-indigo-400 hover:text-indigo-300 transition-colors">
+                {{call .T "privacy.back_to_sign_in"}}
+            </a>
+        </p>
+    </div>
+    {{template "layout/pwa_register" .}}
+</body>
+</html>
+{{end}}

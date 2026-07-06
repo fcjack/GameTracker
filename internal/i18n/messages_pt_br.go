@@ -241,4 +241,38 @@ var ptBRMessages = map[string]string{
 	"import.skipped_suffix":              " (%d ignorados)",
 	"import.failed":                      "Falha na importação.",
 	"import.cancelled":                   "Importação cancelada.",
+
+	"privacy.page_title":      "Política de Privacidade",
+	"privacy.last_updated":    "Última atualização: 6 de julho de 2026",
+	"privacy.back_to_sign_in": "Voltar para entrar",
+
+	"privacy.overview.title": "Visão geral",
+	"privacy.overview.body":  "Helios Gaming tracker é um aplicativo auto-hospedado para biblioteca pessoal de jogos. Ele ajuda você a importar jogos de plataformas vinculadas, acompanhar tempo de jogo e status, e consultar metadados. Esta política descreve quais informações o aplicativo armazena e como são usadas na sua instância.",
+
+	"privacy.data_collected.title": "Informações armazenadas na sua conta",
+	"privacy.data_collected.body":  "Ao se registrar, o aplicativo armazena um nome de usuário e uma senha com hash bcrypt. Seu perfil pode incluir preferência de idioma e um avatar opcional. Sua biblioteca armazena títulos, plataformas, status, tempo de jogo, datas de conclusão e metadados importados ou adicionados por você.",
+
+	"privacy.linked_accounts.title": "Contas de plataforma vinculadas",
+	"privacy.linked_accounts.body":  "Se você vincular Steam, Xbox ou Epic Games, o aplicativo armazena seu identificador externo, nome de exibição e tokens OAuth de acesso e atualização. Os tokens são criptografados em repouso antes de serem salvos no banco de dados. A vinculação é opcional e usada apenas para importar ou atualizar sua biblioteca e tempo de jogo nesta instância.",
+
+	"privacy.third_party.title": "Serviços de terceiros",
+	"privacy.third_party.body":  "Ao vincular uma plataforma ou buscar jogos, o aplicativo contata as APIs dos provedores (Steam, Microsoft/Xbox Live, Epic Games e, opcionalmente, IGDB via credenciais Twitch) para obter biblioteca, tempo de jogo ou metadados. Esses serviços recebem os dados necessários para autenticação e as solicitações que você dispara. O uso deles é regido pela política de privacidade de cada provedor.",
+
+	"privacy.how_we_use.title": "Como suas informações são usadas",
+	"privacy.how_we_use.body":  "Os dados são usados apenas para operar sua biblioteca pessoal nesta instância. Helios Gaming tracker não possui recursos sociais, publicidade, analytics ou venda de dados. As informações não são compartilhadas com outros usuários nem com os autores do aplicativo, a menos que você escolha compartilhar sua instância.",
+
+	"privacy.cookies.title": "Cookies e sessões",
+	"privacy.cookies.body":  "O aplicativo usa um cookie de sessão assinado para mantê-lo conectado. Nenhum cookie de rastreamento de terceiros é definido pelo próprio aplicativo.",
+
+	"privacy.retention.title": "Retenção e exclusão",
+	"privacy.retention.body":  "Seus dados permanecem nesta instância até que você ou o operador os exclua. Você pode remover jogos importados, limpar bibliotecas de plataforma, desvincular contas externas ou excluir sua conta conforme os recursos disponíveis na sua implantação.",
+
+	"privacy.self_hosted.title": "Implantações auto-hospedadas",
+	"privacy.self_hosted.body":  "Cada instalação roda em infraestrutura controlada pelo operador. O operador é responsável pela segurança do servidor, backups e conformidade com as leis aplicáveis. Esta política descreve o comportamento do aplicativo; seu operador pode publicar detalhes adicionais de contato ou hospedagem para sua instância.",
+
+	"privacy.changes.title": "Alterações nesta política",
+	"privacy.changes.body":  "Esta política pode ser atualizada quando o aplicativo mudar. A data de última atualização no topo desta página reflete a versão atual.",
+
+	"privacy.contact.title": "Contato",
+	"privacy.contact.body":  "Para dúvidas sobre como seus dados são tratados nesta instância, entre em contato com a pessoa ou organização que opera sua implantação do Helios Gaming tracker.",
 }
