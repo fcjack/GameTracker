@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/fcjack/GameTracker/compare/v0.8.0...v0.8.1) (2026-07-06)
+
+
+### Bug Fixes
+
+* always render public privacy page in English ([d8bb784](https://github.com/fcjack/GameTracker/commit/d8bb784d7489011d5adced95308f877e2c85d514))
+
 ## [0.8.0](https://github.com/fcjack/GameTracker/compare/v0.7.0...v0.8.0) (2026-07-06)
 
 
