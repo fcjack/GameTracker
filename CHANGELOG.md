@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.8.2](https://github.com/fcjack/GameTracker/compare/v0.8.1...v0.8.2) (2026-08-11)
+
+
+### Bug Fixes
+
+* gofmt i18n helpers after Epic removal ([1364588](https://github.com/fcjack/GameTracker/commit/13645887a312199cacbe6f719d29e49fc22bf470))
+* handle unavailable apps in Steam store responses ([9dc5208](https://github.com/fcjack/GameTracker/commit/9dc52086a52a1fa4a05222aca67f6735fab6f935))
+* restore profileTemplateBase return after Epic removal ([8a4808d](https://github.com/fcjack/GameTracker/commit/8a4808d132f6a181588f64497010d761ec5673f0))
+
 ## [0.8.1](https://github.com/fcjack/GameTracker/compare/v0.8.0...v0.8.1) (2026-07-06)
 
 
