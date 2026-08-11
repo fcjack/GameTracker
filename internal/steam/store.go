@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strconv"
 	"sync"
@@ -122,6 +123,7 @@ func (c *StoreClient) getAppType(ctx context.Context, appID int) (string, bool, 
 	body, err := c.fetchAppDetails(ctx, appID)
 	if err != nil {
 		if errors.Is(err, errAppUnavailable) {
+			slog.Warn("steam store: app unavailable, skipping", "app_id", appID)
 			c.typeCache.Store(appID, cachedAppType{})
 			return "", false, nil
 		}
