@@ -3,6 +3,7 @@ package steam
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -10,6 +11,9 @@ import (
 	"sync"
 	"time"
 )
+
+// errAppUnavailable is returned when the Steam Store has no details for an app (e.g. removed/delisted).
+var errAppUnavailable = errors.New("steam store: app unavailable")
 
 const (
 	storeAPIBase         = "https://store.steampowered.com"
@@ -117,6 +121,10 @@ func (c *StoreClient) getAppType(ctx context.Context, appID int) (string, bool, 
 
 	body, err := c.fetchAppDetails(ctx, appID)
 	if err != nil {
+		if errors.Is(err, errAppUnavailable) {
+			c.typeCache.Store(appID, cachedAppType{})
+			return "", false, nil
+		}
 		return "", false, err
 	}
 
@@ -170,6 +178,10 @@ func (c *StoreClient) fetchAppDetails(ctx context.Context, appID int) ([]byte, e
 			return body, nil
 		}
 
+		if resp.StatusCode == http.StatusInternalServerError {
+			// Steam returns 500 for removed/delisted apps; treat as unavailable, not a fatal error.
+			return nil, fmt.Errorf("%w: app %d returned 500", errAppUnavailable, appID)
+		}
 		lastErr = fmt.Errorf("steam store: app %d returned %d: %s", appID, resp.StatusCode, string(body))
 		if !isRetryableStoreStatus(resp.StatusCode) || attempt == maxStoreRetries {
 			return nil, lastErr
