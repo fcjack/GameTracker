@@ -3,7 +3,7 @@ module github.com/jacksoncoelho/game-tracker
 go 1.25.0
 
 require (
-	github.com/failsafe-go/failsafe-go v0.9.6
+	github.com/failsafe-go/failsafe-go v0.9.7
 	github.com/gin-contrib/sessions v1.1.0
 	github.com/gin-gonic/gin v1.12.0
 	github.com/jackc/pgx/v5 v5.10.0
