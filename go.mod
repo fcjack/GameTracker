@@ -1,6 +1,6 @@
 module github.com/jacksoncoelho/game-tracker
 
-go 1.25.0
+go 1.26.0
 
 require (
 	github.com/failsafe-go/failsafe-go v0.9.7
@@ -9,7 +9,7 @@ require (
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/joho/godotenv v1.5.1
 	github.com/prometheus/client_golang v1.24.1
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/sync v0.22.0
 )
 
